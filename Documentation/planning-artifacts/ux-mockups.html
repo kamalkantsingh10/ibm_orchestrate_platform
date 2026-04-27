@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KYC Cockpit — D3 Mockup Gallery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* =========================================================
+     Design Tokens — from UX spec Visual Foundation
+     ========================================================= */
+  :root {
+    --surface-pure: #FFFFFF;
+    --surface-warm: #FAFAF9;
+    --surface-sunken: #F4F4F5;
+    --vein-soft: #E4E4E7;
+    --vein-strong: #D4D4D8;
+    --ink-primary: #0A0A0A;
+    --ink-secondary: #52525B;
+    --ink-tertiary: #71717A;
+    --ink-ghost: #A1A1AA;
+    --conf-high: #059669;
+    --conf-medhigh: #65A30D;
+    --conf-medium: #D97706;
+    --conf-low: #DC2626;
+    --ag-supervisor: #C7D2FE;
+    --ag-docintel: #D9F99D;
+    --ag-entity: #FECDD3;
+    --ag-ubo: #BAE6FD;
+    --ag-screening: #FDE68A;
+    --ag-risk: #99F6E4;
+    --ag-writing: #DDD6FE;
+    --ag-chat: #FED7AA;
+    --focus-ring: #2563EB;
+    --zen-bg-deep: #09090B;
+    --zen-bg-panel: #18181B;
+    --zen-ink-primary: #FAFAF9;
+    --zen-ink-secondary: #A1A1AA;
+    --zen-vein: #27272A;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+    --font-serif: 'Source Serif 4', Georgia, serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { font-family: var(--font-sans); color: var(--ink-primary); background: var(--surface-sunken); font-feature-settings: "ss01", "cv11"; -webkit-font-smoothing: antialiased; }
+
+  /* =========================================================
+     Page chrome
+     ========================================================= */
+  .page-header {
+    background: var(--surface-pure);
+    border-bottom: 1px solid var(--vein-soft);
+    padding: 24px 40px 12px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .page-header-top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .page-header h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .page-header .subtitle { font-size: 13px; color: var(--ink-tertiary); }
+  .page-header .cross-link { font-size: 12px; color: var(--ink-tertiary); text-decoration: none; border: 1px solid var(--vein-soft); padding: 5px 10px; border-radius: 6px; background: var(--surface-pure); }
+  .page-header .cross-link:hover { border-color: var(--vein-strong); }
+  .tabs { display: flex; gap: 3px; margin-top: 14px; overflow-x: auto; padding-bottom: 2px; }
+  .tab {
+    padding: 7px 12px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--vein-soft); border-radius: 6px; background: var(--surface-pure);
+    cursor: pointer; color: var(--ink-secondary); transition: all 120ms ease-out;
+    white-space: nowrap;
+  }
+  .tab:hover { border-color: var(--vein-strong); }
+  .tab.active { background: var(--ink-primary); color: var(--surface-pure); border-color: var(--ink-primary); }
+  .tab .tab-num { font-family: var(--font-mono); font-size: 10px; color: var(--ink-ghost); margin-right: 4px; font-weight: 400; }
+  .tab.active .tab-num { color: var(--ink-ghost); }
+
+  .view-section { display: none; padding: 32px 40px; }
+  .view-section.active { display: block; }
+  .view-header { max-width: 1500px; margin: 0 auto 20px; }
+  .view-header h2 { font-size: 22px; font-weight: 600; letter-spacing: -0.015em; }
+  .view-header .view-tagline { font-size: 13px; color: var(--ink-tertiary); margin-top: 3px; font-style: italic; }
+  .view-header .pitch { font-size: 13px; color: var(--ink-secondary); margin-top: 10px; max-width: 960px; line-height: 1.55; }
+  .view-header .traits { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .trait { font-size: 11px; color: var(--ink-tertiary); padding: 3px 9px; background: var(--surface-pure); border: 1px solid var(--vein-soft); border-radius: 999px; }
+
+  /* =========================================================
+     Cockpit frame (shared, D3 final styling)
+     ========================================================= */
+  .cockpit {
+    max-width: 1500px; margin: 0 auto;
+    background: var(--surface-pure);
+    border: 1px solid var(--vein-strong); border-radius: 10px;
+    overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 4px 10px 0 rgb(0 0 0 / 0.04);
+    position: relative;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px; border-bottom: 1px solid var(--vein-soft);
+    background: var(--surface-pure); height: 48px;
+  }
+  .topbar .brand { display: flex; align-items: center; gap: 10px; }
+  .topbar .brand-mark { width: 20px; height: 20px; border-radius: 4px; background: linear-gradient(135deg, var(--ink-primary) 0%, var(--ink-secondary) 100%); }
+  .topbar .brand-name { font-size: 13px; font-weight: 600; }
+  .topbar .mode-switch { display: flex; gap: 2px; background: var(--surface-warm); border: 1px solid var(--vein-soft); border-radius: 6px; padding: 2px; }
+  .topbar .mode-switch .mode { padding: 4px 10px; font-size: 11px; color: var(--ink-tertiary); border-radius: 4px; cursor: pointer; }
+  .topbar .mode-switch .mode.active { background: var(--surface-pure); color: var(--ink-primary); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); font-weight: 500; }
+  .topbar .palette-hint { font-family: var(--font-mono); font-size: 11px; color: var(--ink-ghost); padding: 4px 8px; border: 1px solid var(--vein-soft); border-radius: 4px; background: var(--surface-warm); cursor: pointer; }
+  .topbar .role-badge { font-size: 11px; color: var(--ink-secondary); padding: 4px 10px; background: var(--surface-warm); border: 1px solid var(--vein-soft); border-radius: 999px; font-weight: 500; }
+  .topbar .user-avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--surface-sunken); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: var(--ink-secondary); }
+
+  .cockpit-body { display: flex; min-height: 640px; }
+  .queue-rail { width: 240px; background: var(--surface-warm); border-right: 1px solid var(--vein-soft); flex-shrink: 0; display: flex; flex-direction: column; padding: 10px 6px; overflow-y: auto; }
+  .canvas { flex: 1; background: var(--surface-pure); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  .copilot-pane { width: 260px; background: var(--surface-warm); border-left: 1px solid var(--vein-soft); flex-shrink: 0; display: flex; flex-direction: column; padding: 12px 10px; }
+  .bottom-ribbon { height: 30px; border-top: 1px solid var(--vein-soft); background: var(--surface-warm); display: flex; align-items: center; padding: 0 14px; gap: 18px; font-size: 10px; color: var(--ink-tertiary); }
+  .ribbon-pulse { display: flex; gap: 3px; align-items: center; }
+  .pulse-dot { width: 6px; height: 6px; border-radius: 999px; background: var(--conf-high); }
+  .pulse-dot.working { background: var(--conf-medhigh); animation: pulse 1.2s ease-in-out infinite; }
+  .pulse-dot.blocked { background: var(--conf-low); }
+  .pulse-dot.idle { background: var(--ink-ghost); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* Queue rail */
+  .queue-header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); margin-bottom: 8px; padding: 0 6px; display: flex; justify-content: space-between; align-items: center; }
+  .queue-filter { display: flex; gap: 3px; padding: 0 4px 8px; border-bottom: 1px solid var(--vein-soft); margin-bottom: 6px; }
+  .queue-filter .qf { font-size: 10px; padding: 3px 7px; border-radius: 4px; color: var(--ink-tertiary); cursor: pointer; }
+  .queue-filter .qf.active { background: var(--surface-pure); color: var(--ink-primary); font-weight: 500; border: 1px solid var(--vein-soft); }
+  .queue-item { padding: 9px 11px; border-radius: 8px; margin-bottom: 2px; cursor: pointer; border: 1px solid transparent; transition: all 120ms ease-out; }
+  .queue-item:hover { background: var(--surface-pure); }
+  .queue-item.active { background: var(--surface-pure); border-color: var(--vein-soft); box-shadow: 0 1px 2px rgb(0 0 0 / 0.04); }
+  .queue-item.closed { opacity: 0.55; }
+  .queue-item.closed::after { content: "✓"; float: right; color: var(--conf-high); font-size: 11px; }
+  .queue-name { font-size: 12px; font-weight: 500; margin-bottom: 2px; letter-spacing: -0.005em; }
+  .queue-meta { display: flex; gap: 5px; font-size: 10px; color: var(--ink-tertiary); align-items: center; }
+  .queue-meta .case-id { font-family: var(--font-mono); font-size: 9px; }
+  .queue-item.multi-selected { background: var(--surface-pure); border-color: var(--vein-soft); }
+  .queue-item.multi-selected::before { content: "☑"; float: right; color: var(--ink-primary); font-size: 11px; }
+
+  /* Canvas header */
+  .canvas-header { padding: 14px 20px 12px; border-bottom: 1px solid var(--vein-soft); }
+  .canvas-crumb { font-size: 9px; color: var(--ink-tertiary); margin-bottom: 4px; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .canvas-title { font-size: 17px; font-weight: 600; letter-spacing: -0.015em; line-height: 1.25; display: flex; align-items: baseline; gap: 10px; }
+  .canvas-title .case-id-inline { font-family: var(--font-mono); font-size: 10px; color: var(--ink-tertiary); font-weight: 400; letter-spacing: 0; }
+  .canvas-sub { font-size: 11px; color: var(--ink-secondary); margin-top: 3px; }
+
+  /* Panels */
+  .panels { padding: 14px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { background: var(--surface-warm); border: 1px solid var(--vein-soft); border-radius: 10px; padding: 14px 16px; transition: border-color 160ms ease-out, box-shadow 160ms ease-out; }
+  .panel:hover { border-color: var(--vein-strong); box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.04); }
+  .panel.panel-hero-attention { background: rgb(217 119 6 / 0.05); border-color: var(--conf-medium); }
+  .panel-title { font-size: 12px; font-weight: 600; color: var(--ink-primary); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .panel-title .panel-tag { font-size: 10px; font-weight: 400; color: var(--ink-tertiary); font-family: var(--font-mono); display: flex; align-items: center; gap: 4px; }
+  .panel-content { font-size: 12px; color: var(--ink-secondary); line-height: 1.5; }
+  .panel-content .key { color: var(--ink-primary); font-weight: 500; }
+  .panel-content .mono { font-family: var(--font-mono); font-size: 10px; }
+
+  /* Decomposition grammar */
+  .decomp-chart { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .decomp-row { display: grid; grid-template-columns: 72px 1fr 52px; gap: 10px; align-items: center; font-size: 10px; }
+  .decomp-row .decomp-label { color: var(--ink-secondary); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .decomp-row .decomp-track { background: var(--surface-sunken); height: 6px; border-radius: 999px; overflow: hidden; position: relative; }
+  .decomp-row .decomp-fill { height: 100%; border-radius: 999px; transition: width 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+  .decomp-row .decomp-value { font-family: var(--font-mono); color: var(--ink-primary); font-weight: 500; text-align: right; font-size: 10px; white-space: nowrap; }
+  .decomp-row .decomp-value.muted { color: var(--ink-ghost); font-weight: 400; }
+  .decomp-row .decomp-value.danger { color: var(--conf-low); }
+  .decomp-subhead { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-ghost); padding: 4px 0 2px; }
+  .decomp-summary { display: flex; align-items: baseline; gap: 8px; margin-bottom: 2px; padding-bottom: 10px; border-bottom: 1px solid var(--vein-soft); }
+  .decomp-num { font-size: 28px; font-weight: 700; letter-spacing: -0.025em; font-family: var(--font-mono); color: var(--ink-primary); line-height: 1; }
+  .decomp-num.medium { color: var(--conf-medium); }
+  .decomp-num.high { color: var(--conf-high); }
+  .decomp-num.low { color: var(--conf-low); }
+  .decomp-max { font-size: 10px; color: var(--ink-tertiary); font-family: var(--font-mono); }
+  .decomp-band { font-size: 9px; color: var(--ink-tertiary); text-transform: uppercase; letter-spacing: 0.06em; font-family: var(--font-mono); }
+
+  /* Confidence shape markers */
+  .conf-shape { display: inline-block; width: 10px; height: 10px; vertical-align: middle; margin-right: 4px; }
+  .conf-shape.high { background: var(--conf-high); border-radius: 999px; }
+  .conf-shape.medhigh { background: linear-gradient(90deg, var(--conf-medhigh) 50%, transparent 50%); border: 1px solid var(--conf-medhigh); border-radius: 999px; }
+  .conf-shape.medium { background: transparent; border: 2px solid var(--conf-medium); border-radius: 999px; }
+  .conf-shape.low { width: 0; height: 0; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 9px solid var(--conf-low); background: transparent; }
+
+  /* Agent faces */
+  .agent-face {
+    width: 30px; height: 30px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    border: 2px solid transparent;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .agent-face.supervisor { background: var(--ag-supervisor); }
+  .agent-face.docintel { background: var(--ag-docintel); }
+  .agent-face.entity { background: var(--ag-entity); }
+  .agent-face.ubo { background: var(--ag-ubo); }
+  .agent-face.screening { background: var(--ag-screening); }
+  .agent-face.risk { background: var(--ag-risk); }
+  .agent-face.writing { background: var(--ag-writing); }
+  .agent-face.chat { background: var(--ag-chat); }
+  .agent-face.working::after {
+    content: ""; position: absolute; inset: -3px; border-radius: 999px;
+    border: 2px solid currentColor; opacity: 0.3;
+    animation: breath 1.8s ease-in-out infinite;
+  }
+  @keyframes breath { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.18); opacity: 0.08; } }
+  .agent-face.needs-input { animation: nudge 2s ease-in-out infinite; }
+  @keyframes nudge { 0%, 90%, 100% { transform: rotate(0); } 45% { transform: rotate(-10deg); } }
+  .agent-face.blocked { filter: saturate(0.4); }
+  .agent-face.blocked::after {
+    content: "!"; position: absolute; bottom: -3px; right: -3px;
+    width: 12px; height: 12px; border-radius: 999px;
+    background: var(--conf-low); color: var(--surface-pure);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+  }
+  .agent-face.complete::after {
+    content: ""; position: absolute; inset: -3px; border-radius: 999px;
+    border: 2px solid var(--conf-high); opacity: 0;
+    animation: completeGlow 2.5s ease-out infinite;
+  }
+  @keyframes completeGlow { 0% { opacity: 0.5; transform: scale(1); } 60%, 100% { opacity: 0; transform: scale(1.3); } }
+  .agent-face .eyes { display: flex; gap: 4px; }
+  .agent-face .eye { width: 2.5px; height: 2.5px; border-radius: 999px; background: var(--ink-primary); opacity: 0.75; }
+  .agent-face.needs-input .eye { transform: translateY(-1px); }
+
+  /* Copilot pane */
+  .copilot-header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); margin-bottom: 10px; padding: 0 4px; }
+  .agent-list { display: flex; flex-direction: column; gap: 3px; }
+  .agent-row { display: flex; align-items: center; gap: 8px; padding: 6px 7px; border-radius: 4px; cursor: pointer; }
+  .agent-row:hover { background: var(--surface-pure); }
+  .agent-row.needs-highlight { background: var(--surface-pure); border: 1px solid var(--conf-medium); }
+  .agent-info { flex: 1; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .agent-name { font-size: 11px; font-weight: 500; }
+  .agent-status { font-size: 9px; color: var(--ink-tertiary); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+  .agent-status.working { color: var(--conf-medhigh); font-weight: 500; }
+  .agent-status.needs { color: var(--conf-medium); font-weight: 500; }
+  .agent-status.blocked { color: var(--conf-low); font-weight: 500; }
+  .agent-status.complete { color: var(--conf-high); }
+
+  /* Decision Zone */
+  .decision-zone {
+    margin: 14px 20px 20px; padding: 18px 20px;
+    background: var(--surface-pure); border: 2px solid var(--ink-primary); border-radius: 12px;
+    box-shadow: 0 2px 4px 0 rgb(0 0 0 / 0.03);
+    transition: box-shadow 200ms ease-out;
+  }
+  .decision-zone.focused { box-shadow: 0 6px 14px 0 rgb(0 0 0 / 0.08); }
+  .dz-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-primary); margin-bottom: 6px; }
+  .dz-heading { font-size: 15px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px; }
+  .dz-draft { font-family: var(--font-serif); font-size: 13px; line-height: 1.65; color: var(--ink-secondary); margin-bottom: 12px; }
+  .dz-draft .edit { background: rgb(101 163 13 / 0.14); padding: 0 3px; border-radius: 2px; color: var(--ink-primary); }
+  .dz-draft .ledger-ref { font-family: var(--font-mono); font-size: 10px; color: var(--focus-ring); padding: 0 2px; }
+  .dz-actions { display: flex; gap: 6px; align-items: center; }
+  .btn { padding: 8px 16px; font-size: 11px; font-weight: 500; border-radius: 999px; border: 1px solid var(--vein-strong); background: var(--surface-pure); cursor: pointer; transition: all 120ms ease-out; font-family: var(--font-sans); }
+  .btn:hover { border-color: var(--ink-primary); }
+  .btn.primary { background: var(--ink-primary); color: var(--surface-pure); border-color: var(--ink-primary); padding: 8px 20px; }
+  .btn.primary:hover { background: var(--ink-secondary); }
+  .btn.danger { color: var(--conf-low); border-color: var(--conf-low); }
+  .btn.danger:hover { background: rgb(220 38 38 / 0.05); }
+  .btn.secondary { border-radius: 6px; padding: 7px 14px; }
+  .shortcut { font-family: var(--font-mono); font-size: 9px; color: var(--ink-tertiary); margin-left: 5px; padding: 1px 4px; border: 1px solid var(--vein-soft); border-radius: 2px; background: var(--surface-warm); }
+  .btn.primary .shortcut { color: var(--ink-ghost); border-color: rgb(255 255 255 / 0.15); background: rgb(255 255 255 / 0.1); }
+  .dz-committed {
+    font-size: 11px; color: var(--conf-high); font-weight: 500; display: flex; align-items: center; gap: 6px;
+    padding: 7px 14px; background: rgb(5 150 105 / 0.08); border-radius: 6px;
+  }
+  .dz-committed .seal-mark { font-size: 13px; }
+
+  /* =========================================================
+     Overlays, dim, drawers, modals
+     ========================================================= */
+  .canvas.dimmed > *:not(.overlay) { opacity: 0.5; pointer-events: none; transition: opacity 250ms ease-out; }
+  .canvas-dim-layer { position: absolute; inset: 0; background: rgb(255 255 255 / 0.55); pointer-events: none; z-index: 5; }
+
+  /* Slide-out drawer */
+  .slide-out {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 460px; z-index: 20;
+    background: var(--surface-pure); border-left: 1px solid var(--vein-strong);
+    box-shadow: 0 4px 18px 0 rgb(0 0 0 / 0.08);
+    display: flex; flex-direction: column;
+    animation: slideIn 300ms ease-in-out;
+  }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .slide-out-header { padding: 14px 18px; border-bottom: 1px solid var(--vein-soft); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .slide-out-title { display: flex; align-items: center; gap: 10px; }
+  .slide-out-title-text { display: flex; flex-direction: column; gap: 2px; }
+  .slide-out-title-text .stt-name { font-size: 13px; font-weight: 600; }
+  .slide-out-title-text .stt-sub { font-size: 10px; color: var(--ink-tertiary); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.04em; }
+  .slide-out-close { font-family: var(--font-mono); font-size: 10px; color: var(--ink-tertiary); padding: 3px 7px; border: 1px solid var(--vein-soft); border-radius: 4px; background: var(--surface-warm); }
+  .slide-out-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
+  .slide-out-section { padding: 14px 0; border-bottom: 1px solid var(--vein-soft); }
+  .slide-out-section:last-child { border-bottom: none; }
+  .slide-out-section-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); margin-bottom: 6px; }
+  .slide-out-section-body { font-size: 12px; color: var(--ink-primary); line-height: 1.55; }
+  .slide-out-section-body .mono { font-family: var(--font-mono); font-size: 11px; color: var(--ink-secondary); }
+  .slide-out-section-body.counterfactual { background: rgb(37 99 235 / 0.04); padding: 10px 12px; border-radius: 6px; border-left: 2px solid var(--focus-ring); }
+  .conf-display-large { display: flex; align-items: baseline; gap: 10px; padding: 6px 0; }
+  .conf-display-large .conf-num { font-size: 26px; font-weight: 700; font-family: var(--font-mono); color: var(--conf-medium); letter-spacing: -0.02em; }
+  .conf-display-large .conf-band-label { font-size: 11px; color: var(--ink-secondary); text-transform: uppercase; letter-spacing: 0.06em; }
+  .conf-display-large .conf-shape { width: 16px; height: 16px; margin-right: 0; }
+
+  /* Fullscreen overlay (UBO Canvas, Command Palette, etc.) */
+  .fullscreen-overlay {
+    position: absolute; inset: 0; z-index: 30;
+    background: rgb(10 10 10 / 0.55);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 200ms ease-out;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  /* UBO Canvas */
+  .ubo-fullview {
+    width: calc(100% - 48px); height: calc(100% - 48px);
+    background: var(--surface-pure);
+    border-radius: 14px; display: flex; flex-direction: column;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.2);
+    overflow: hidden;
+  }
+  .ubo-header { padding: 14px 20px; border-bottom: 1px solid var(--vein-soft); display: flex; justify-content: space-between; align-items: center; }
+  .ubo-title { font-size: 15px; font-weight: 600; display: flex; align-items: baseline; gap: 10px; }
+  .ubo-title .case-id-inline { font-family: var(--font-mono); font-size: 10px; color: var(--ink-tertiary); font-weight: 400; }
+  .ubo-body { flex: 1; display: flex; min-height: 0; }
+  .ubo-graph-area { flex: 1; background: var(--surface-warm); position: relative; overflow: hidden; }
+  .ubo-side-panel { width: 280px; border-left: 1px solid var(--vein-soft); padding: 16px; background: var(--surface-pure); overflow-y: auto; }
+  .ubo-detail-title { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+  .ubo-detail-title .tag { font-size: 10px; color: var(--ink-tertiary); font-family: var(--font-mono); font-weight: 400; }
+  .ubo-detail-field { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; border-bottom: 1px dotted var(--vein-soft); }
+  .ubo-detail-field .l { color: var(--ink-tertiary); }
+  .ubo-detail-field .v { color: var(--ink-primary); font-family: var(--font-mono); }
+  .ubo-correction-modal {
+    position: absolute; right: 20px; top: 50%; transform: translateY(-50%);
+    width: 280px; background: var(--surface-pure); border: 2px solid var(--ink-primary); border-radius: 12px;
+    padding: 16px; box-shadow: 0 8px 20px rgb(0 0 0 / 0.15);
+    z-index: 5;
+  }
+  .ubo-correction-modal .cm-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; color: var(--conf-medhigh); }
+  .ubo-correction-modal .cm-title { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
+  .ubo-correction-modal input[type="text"] { width: 100%; padding: 6px 8px; border: 1px solid var(--vein-strong); border-radius: 6px; font-family: var(--font-sans); font-size: 11px; margin-bottom: 10px; }
+  .ubo-correction-modal .teach-toggle { display: flex; align-items: center; gap: 8px; font-size: 11px; margin-bottom: 12px; padding: 8px; background: var(--surface-warm); border-radius: 6px; }
+  .teach-toggle .toggle { width: 24px; height: 14px; background: var(--ink-primary); border-radius: 999px; position: relative; flex-shrink: 0; }
+  .teach-toggle .toggle::after { content: ""; position: absolute; width: 10px; height: 10px; background: var(--surface-pure); border-radius: 999px; top: 2px; right: 2px; }
+  .ubo-correction-modal .cm-actions { display: flex; gap: 6px; }
+  .ubo-correction-modal .btn { flex: 1; padding: 7px 12px; font-size: 11px; }
+
+  /* Zen mode */
+  .zen-cockpit { background: var(--zen-bg-deep); color: var(--zen-ink-primary); display: flex; flex-direction: column; min-height: 640px; border-radius: 10px; overflow: hidden; border: 1px solid var(--zen-vein); }
+  .zen-topbar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-bottom: 1px solid var(--zen-vein); background: var(--zen-bg-deep); height: 46px; }
+  .zen-topbar .zen-mode-indicator { display: flex; align-items: center; gap: 10px; }
+  .zen-topbar .brand-mark { width: 18px; height: 18px; border-radius: 4px; background: linear-gradient(135deg, var(--zen-ink-primary) 0%, var(--zen-ink-secondary) 100%); }
+  .zen-mode-label { font-size: 11px; color: var(--zen-ink-secondary); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .zen-mode-label .current { color: var(--zen-ink-primary); font-weight: 500; }
+  .zen-topbar .palette-hint { font-family: var(--font-mono); font-size: 11px; color: var(--zen-ink-secondary); padding: 3px 8px; border: 1px solid var(--zen-vein); border-radius: 4px; background: var(--zen-bg-panel); }
+  .zen-body { flex: 1; display: flex; padding: 40px 40px 20px; }
+  .zen-column { flex: 1; max-width: 720px; margin: 0 auto; padding: 0 32px; }
+  .zen-edd-label { font-size: 10px; color: var(--zen-ink-secondary); text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--font-mono); margin-bottom: 12px; }
+  .zen-edd-title { font-family: var(--font-serif); font-size: 28px; font-weight: 600; line-height: 1.15; margin-bottom: 24px; letter-spacing: -0.02em; }
+  .zen-edd-body { font-family: var(--font-serif); font-size: 18px; line-height: 1.7; color: var(--zen-ink-primary); }
+  .zen-edd-body p { margin-bottom: 18px; }
+  .zen-edd-body .edit { background: rgb(101 163 13 / 0.22); padding: 0 4px; border-radius: 3px; }
+  .zen-edd-body .ledger-ref { font-family: var(--font-mono); font-size: 14px; color: #93C5FD; }
+  .zen-edd-footer { margin-top: 32px; display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--zen-ink-secondary); font-family: var(--font-mono); }
+  .zen-dock { width: 300px; border-left: 1px solid var(--zen-vein); padding: 24px 20px; display: flex; flex-direction: column; gap: 20px; }
+  .zen-dock-section { display: flex; flex-direction: column; gap: 10px; }
+  .zen-dock-section-label { font-size: 10px; color: var(--zen-ink-secondary); text-transform: uppercase; letter-spacing: 0.08em; font-family: var(--font-mono); }
+  .zen-dock-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: var(--zen-bg-panel); border-radius: 6px; font-size: 11px; }
+  .zen-dock-item .zen-hash { font-family: var(--font-mono); font-size: 10px; color: var(--zen-ink-secondary); }
+  .zen-dock-item .zen-name { flex: 1; color: var(--zen-ink-primary); }
+  .zen-dock-item .conf-shape.high { background: #34D399; }
+  .zen-bottom-bar { border-top: 1px solid var(--zen-vein); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--zen-ink-secondary); font-family: var(--font-mono); background: var(--zen-bg-deep); }
+  .zen-commit-hint { padding: 6px 14px; background: var(--zen-bg-panel); border-radius: 999px; font-size: 11px; color: var(--zen-ink-primary); font-family: var(--font-sans); display: flex; align-items: center; gap: 6px; }
+
+  /* Audit trail timeline */
+  .audit-panel { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .audit-header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); padding: 0 4px 6px; border-bottom: 1px solid var(--vein-soft); margin-bottom: 4px; }
+  .audit-entry { display: flex; gap: 8px; padding: 8px; border-radius: 6px; transition: background 120ms; }
+  .audit-entry:hover { background: var(--surface-pure); }
+  .audit-entry-marker { flex-shrink: 0; width: 18px; height: 18px; border-radius: 999px; background: var(--surface-pure); border: 1px solid var(--vein-strong); display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 600; color: var(--ink-secondary); margin-top: 2px; position: relative; }
+  .audit-entry-marker.officer { background: var(--focus-ring); color: var(--surface-pure); border-color: var(--focus-ring); }
+  .audit-entry-marker.agent.docintel { background: var(--ag-docintel); }
+  .audit-entry-marker.agent.entity { background: var(--ag-entity); }
+  .audit-entry-marker.agent.ubo { background: var(--ag-ubo); }
+  .audit-entry-marker.agent.screening { background: var(--ag-screening); }
+  .audit-entry-marker.agent.writing { background: var(--ag-writing); }
+  .audit-entry-marker::after { content: ""; position: absolute; top: 100%; left: 50%; width: 1px; height: 12px; background: var(--vein-strong); transform: translateX(-50%); }
+  .audit-entry:last-child .audit-entry-marker::after { display: none; }
+  .audit-entry-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .audit-entry-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; font-size: 11px; }
+  .audit-entry-actor { font-weight: 500; }
+  .audit-entry-time { font-family: var(--font-mono); font-size: 9px; color: var(--ink-tertiary); white-space: nowrap; }
+  .audit-entry-action { font-size: 11px; color: var(--ink-secondary); line-height: 1.4; }
+  .audit-entry-hash { font-family: var(--font-mono); font-size: 9px; color: var(--ink-ghost); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+  .audit-entry-hash .sig-ok { color: var(--conf-high); font-weight: 500; }
+
+  /* Command palette */
+  .cmd-palette {
+    width: 600px; background: var(--surface-pure); border: 1px solid var(--vein-strong);
+    border-radius: 12px; box-shadow: 0 20px 40px rgb(0 0 0 / 0.15);
+    overflow: hidden;
+    animation: cmdIn 180ms ease-out;
+  }
+  @keyframes cmdIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .cmd-input-row { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--vein-soft); }
+  .cmd-search-icon { width: 16px; height: 16px; color: var(--ink-tertiary); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+  .cmd-input { flex: 1; font-size: 14px; border: none; outline: none; font-family: var(--font-sans); color: var(--ink-primary); }
+  .cmd-input::placeholder { color: var(--ink-ghost); }
+  .cmd-hint { font-family: var(--font-mono); font-size: 10px; color: var(--ink-tertiary); padding: 2px 6px; border: 1px solid var(--vein-soft); border-radius: 3px; }
+  .cmd-list { max-height: 400px; overflow-y: auto; padding: 6px; }
+  .cmd-group { padding: 4px 0; }
+  .cmd-group-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-ghost); padding: 8px 10px 4px; }
+  .cmd-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+  .cmd-item:hover, .cmd-item.focused { background: var(--surface-warm); }
+  .cmd-item.focused { background: var(--focus-ring); color: var(--surface-pure); }
+  .cmd-item.focused .cmd-item-hint, .cmd-item.focused .cmd-item-sub { color: rgb(255 255 255 / 0.7); }
+  .cmd-item-icon { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+  .cmd-item-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .cmd-item-title { font-size: 12px; }
+  .cmd-item-sub { font-size: 10px; color: var(--ink-tertiary); }
+  .cmd-item-hint { font-family: var(--font-mono); font-size: 9px; color: var(--ink-tertiary); padding: 2px 5px; border: 1px solid var(--vein-soft); border-radius: 3px; }
+  .cmd-footer { padding: 8px 14px; background: var(--surface-warm); border-top: 1px solid var(--vein-soft); display: flex; gap: 14px; font-size: 10px; color: var(--ink-tertiary); }
+  .cmd-footer .key { font-family: var(--font-mono); color: var(--ink-secondary); margin-right: 4px; }
+
+  /* UndoPill */
+  .undo-pill-container { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); z-index: 15; }
+  .undo-pill {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface-pure); border: 1px solid var(--vein-strong);
+    border-radius: 999px; padding: 8px 16px 8px 10px;
+    box-shadow: 0 6px 14px rgb(0 0 0 / 0.08);
+    font-size: 12px; font-weight: 500;
+    animation: undoIn 300ms ease-out;
+  }
+  @keyframes undoIn { from { transform: translate(-50%, 10px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+  .undo-countdown {
+    width: 28px; height: 28px; border-radius: 999px;
+    background: conic-gradient(var(--ink-primary) 270deg, var(--vein-soft) 270deg);
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .undo-countdown::before {
+    content: ""; position: absolute; inset: 3px; background: var(--surface-pure); border-radius: 999px;
+  }
+  .undo-countdown span { position: relative; z-index: 1; font-family: var(--font-mono); font-size: 10px; font-weight: 600; }
+  .undo-pill .undo-text { color: var(--ink-primary); }
+  .undo-pill .undo-meta { color: var(--ink-tertiary); font-size: 10px; font-family: var(--font-mono); margin-left: 4px; }
+
+  /* Toast */
+  .toast-container { position: absolute; top: 60px; right: 20px; z-index: 18; display: flex; flex-direction: column; gap: 8px; }
+  .toast {
+    background: var(--surface-pure); border: 1px solid var(--vein-soft); border-radius: 999px;
+    padding: 8px 16px; font-size: 11px; box-shadow: 0 4px 10px rgb(0 0 0 / 0.06);
+    display: flex; align-items: center; gap: 8px;
+    animation: toastIn 250ms ease-out;
+  }
+  @keyframes toastIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+  .toast .toast-icon { width: 14px; height: 14px; border-radius: 999px; background: var(--conf-high); display: flex; align-items: center; justify-content: center; color: var(--surface-pure); font-size: 9px; font-weight: 700; }
+  .toast .toast-text { color: var(--ink-primary); font-weight: 500; }
+  .toast .toast-meta { font-family: var(--font-mono); font-size: 10px; color: var(--ink-tertiary); }
+
+  /* Empty state */
+  .empty-state { display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; padding: 60px 20px; color: var(--ink-tertiary); text-align: center; }
+  .empty-state .empty-icon { width: 32px; height: 32px; border-radius: 999px; background: var(--surface-warm); display: flex; align-items: center; justify-content: center; font-size: 16px; color: var(--ink-ghost); border: 1px solid var(--vein-soft); }
+  .empty-state .empty-title { font-size: 13px; font-weight: 500; color: var(--ink-secondary); }
+  .empty-state .empty-sub { font-size: 11px; color: var(--ink-tertiary); }
+  .empty-state .empty-sub .cmd-k { font-family: var(--font-mono); background: var(--surface-warm); padding: 2px 6px; border: 1px solid var(--vein-soft); border-radius: 3px; font-size: 10px; }
+  .canvas-empty { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+  .canvas-empty .ce-title { font-size: 15px; color: var(--ink-tertiary); }
+  .canvas-empty .ce-sub { font-size: 11px; color: var(--ink-ghost); }
+
+  /* Regulator Lens specific */
+  .lens-cockpit .topbar { background: #FAFAF9; }
+  .lens-bar { background: var(--ink-primary); color: var(--surface-pure); padding: 6px 18px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+  .lens-bar .lens-label { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .lens-bar .lens-label::before { content: "🔍"; filter: invert(1); font-size: 10px; }
+  .lens-bar .lens-meta { font-family: var(--font-mono); font-size: 10px; color: rgb(255 255 255 / 0.6); }
+  .lens-timeline-area { flex: 1; padding: 20px 24px; overflow-y: auto; }
+  .lens-timeline-case { background: var(--surface-warm); border: 1px solid var(--vein-soft); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .lens-timeline-case-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--vein-soft); }
+  .lens-timeline-case-title { font-size: 14px; font-weight: 600; display: flex; align-items: baseline; gap: 10px; }
+  .lens-timeline-case-meta { font-size: 10px; color: var(--ink-tertiary); font-family: var(--font-mono); }
+  .lens-chain { margin-top: 14px; padding: 12px; background: var(--surface-sunken); border-radius: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .lens-chain-label { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); margin-bottom: 4px; }
+  .lens-chain-row { display: grid; grid-template-columns: 16px 1fr 120px; gap: 10px; align-items: center; font-size: 10px; padding: 5px 0; }
+  .lens-chain-row .chain-idx { color: var(--ink-ghost); font-family: var(--font-mono); text-align: center; }
+  .lens-chain-row .chain-desc { color: var(--ink-secondary); }
+  .lens-chain-row .chain-hash { font-family: var(--font-mono); color: var(--ink-primary); text-align: right; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+  .sig-badge { display: inline-flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; width: 11px; height: 11px; border-radius: 999px; }
+  .sig-badge.ok { background: var(--conf-high); color: var(--surface-pure); }
+  .sig-badge.pending { background: var(--ink-ghost); color: var(--surface-pure); }
+  .sig-badge.fail { background: var(--conf-low); color: var(--surface-pure); }
+  .lens-export-bar { padding: 10px 20px; border-top: 1px solid var(--vein-soft); display: flex; justify-content: space-between; align-items: center; background: var(--surface-warm); }
+  .lens-export-summary { font-size: 11px; color: var(--ink-secondary); }
+  .lens-export-summary .selected { color: var(--ink-primary); font-weight: 600; }
+
+  /* Team Lead Approval Actions */
+  .team-lead-actions { margin: 14px 20px 20px; padding: 16px 20px; border: 2px solid var(--ink-primary); border-radius: 12px; background: var(--surface-pure); }
+  .tl-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; color: var(--ink-primary); }
+  .tl-summary { font-size: 12px; color: var(--ink-secondary); margin-bottom: 14px; line-height: 1.55; }
+  .tl-summary .key { color: var(--ink-primary); font-weight: 500; }
+  .tl-actions { display: flex; gap: 8px; }
+  .readonly-badge { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); padding: 3px 8px; background: var(--surface-sunken); border-radius: 4px; font-family: var(--font-mono); }
+
+  /* Agent face matrix */
+  .matrix-container { max-width: 1500px; margin: 0 auto; background: var(--surface-pure); border: 1px solid var(--vein-strong); border-radius: 10px; padding: 24px; }
+  .matrix-grid { display: grid; grid-template-columns: 140px repeat(5, 1fr); gap: 14px 10px; }
+  .matrix-corner { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); font-family: var(--font-mono); text-align: center; padding-bottom: 10px; border-bottom: 1px solid var(--vein-soft); }
+  .matrix-col-header { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-tertiary); font-family: var(--font-mono); text-align: center; padding-bottom: 10px; border-bottom: 1px solid var(--vein-soft); }
+  .matrix-row-header { font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: flex-end; padding-right: 14px; border-right: 1px solid var(--vein-soft); gap: 10px; }
+  .matrix-row-header .hue-chip { width: 12px; height: 12px; border-radius: 999px; flex-shrink: 0; }
+  .matrix-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 14px 6px; background: var(--surface-warm); border-radius: 8px; }
+  .matrix-cell .matrix-state-label { font-size: 9px; color: var(--ink-tertiary); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.05em; }
+  .matrix-cell .agent-face { width: 38px; height: 38px; }
+  .matrix-cell .agent-face .eye { width: 3px; height: 3px; }
+  .matrix-legend { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--vein-soft); display: flex; gap: 24px; flex-wrap: wrap; }
+  .matrix-legend-item { font-size: 11px; color: var(--ink-secondary); display: flex; gap: 6px; align-items: center; max-width: 280px; }
+  .matrix-legend-item .ml-key { font-family: var(--font-mono); font-size: 10px; color: var(--ink-primary); font-weight: 500; white-space: nowrap; }
+  .matrix-legend-item .ml-desc { color: var(--ink-tertiary); font-size: 10px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="page-header-top">
+    <div>
+      <h1>KYC Cockpit — D3 Mockup Gallery</h1>
+      <div class="subtitle">10 key views of the chosen Calm Canvas direction (D3 · Finexy-refined)</div>
+    </div>
+    <a class="cross-link" href="ux-design-directions.html">← View Direction Explorations</a>
+  </div>
+  <div class="tabs">
+    <button class="tab active" data-view="v1"><span class="tab-num">01</span>Investigation</button>
+    <button class="tab" data-view="v2"><span class="tab-num">02</span>Reasoning Trace</button>
+    <button class="tab" data-view="v3"><span class="tab-num">03</span>UBO Canvas</button>
+    <button class="tab" data-view="v4"><span class="tab-num">04</span>Zen Mode</button>
+    <button class="tab" data-view="v5"><span class="tab-num">05</span>Team Lead</button>
+    <button class="tab" data-view="v6"><span class="tab-num">06</span>Regulator Lens</button>
+    <button class="tab" data-view="v7"><span class="tab-num">07</span>Commit + Undo</button>
+    <button class="tab" data-view="v8"><span class="tab-num">08</span>Command Palette</button>
+    <button class="tab" data-view="v9"><span class="tab-num">09</span>Empty Queue</button>
+    <button class="tab" data-view="v10"><span class="tab-num">10</span>Agent Face Matrix</button>
+  </div>
+</header>
+
+<!-- ============ V1 · Investigation (Default) ============ -->
+<section class="view-section active" id="v1">
+  <div class="view-header">
+    <h2>01 — Investigation · Default</h2>
+    <div class="view-tagline">Priya's cockpit · SME onboarding case open · intake complete · 1 amber hit needs attention</div>
+    <div class="pitch">The canonical cockpit state. Priya has opened <span style="font-family:var(--font-mono);">CASE-7102</span> from her Queue Rail. Intake agents have completed; Screening flagged one amber hit (shown via hero-tint panel). Writing agent is drafting rationale in the background. Four Case Canvas panels follow the unified decomposition grammar — Entity Verification, Risk Score, UBO Ownership, Screening.</div>
+    <div class="traits">
+      <span class="trait">Deep Investigation mode</span>
+      <span class="trait">4 panels unified grammar</span>
+      <span class="trait">1 hero-attention panel</span>
+      <span class="trait">7 of 8 agents complete</span>
+      <span class="trait">Decision Zone pre-drafted</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="mode-switch"><div class="mode">Triage</div><div class="mode active">Investigation</div><div class="mode">Zen</div><div class="mode">Lens</div></div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">PR</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Queue</span><span>11</span></div>
+        <div class="queue-filter"><span class="qf active">Mine</span><span class="qf">Team</span><span class="qf">Cold</span></div>
+        <div class="queue-item"><div class="queue-name">Lalit Industries</div><div class="queue-meta"><span class="case-id">CASE-7019</span> · 14m · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item active"><div class="queue-name">Shree Venkat Trading</div><div class="queue-meta"><span class="case-id">CASE-7102</span> · 9m · <span class="conf-shape medium"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Naveen & Sons</div><div class="queue-meta"><span class="case-id">CASE-7103</span> · new · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Pragati Enterprises</div><div class="queue-meta"><span class="case-id">CASE-7098</span> · 32m · <span class="conf-shape low"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Orion Metals</div><div class="queue-meta"><span class="case-id">CASE-7097</span> · 41m · <span class="conf-shape medhigh"></span></div></div>
+      </aside>
+      <main class="canvas">
+        <header class="canvas-header">
+          <div class="canvas-crumb">SME ONBOARDING · INDIA</div>
+          <h2 class="canvas-title">Shree Venkat Trading Pvt Ltd <span class="case-id-inline">CASE-7102 · v1</span></h2>
+          <div class="canvas-sub">Intake complete · 7 agents reported · 1 needs your attention</div>
+        </header>
+        <div class="panels">
+          <div class="panel">
+            <div class="panel-title">Entity Verification <span class="panel-tag"><span class="conf-shape high"></span> Verified</span></div>
+            <div class="panel-content">
+              <div class="decomp-summary"><span class="decomp-num high">2</span><span class="decomp-max">/ 2 sources</span><span class="decomp-band" style="margin-left:auto;">MCA · GST</span></div>
+              <div class="decomp-chart">
+                <div class="decomp-row"><span class="decomp-label">MCA</span><div class="decomp-track"><div class="decomp-fill" style="width:100%;background:var(--conf-high);"></div></div><span class="decomp-value">Active</span></div>
+                <div class="decomp-row"><span class="decomp-label">GST</span><div class="decomp-track"><div class="decomp-fill" style="width:100%;background:var(--conf-high);"></div></div><span class="decomp-value">Active</span></div>
+                <div class="decomp-row"><span class="decomp-label">Structure</span><div class="decomp-track"><div class="decomp-fill" style="width:100%;background:var(--conf-high);"></div></div><span class="decomp-value">Match</span></div>
+                <div class="decomp-row"><span class="decomp-label">Directors</span><div class="decomp-track"><div class="decomp-fill" style="width:100%;background:var(--conf-high);"></div></div><span class="decomp-value">3 / 3</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">Risk Score <span class="panel-tag"><span class="conf-shape medium"></span> Medium</span></div>
+            <div class="panel-content">
+              <div class="decomp-summary"><span class="decomp-num medium">62</span><span class="decomp-max">/ 100</span><span class="decomp-band" style="margin-left:auto;">decomposition</span></div>
+              <div class="decomp-chart">
+                <div class="decomp-row"><span class="decomp-label">Country</span><div class="decomp-track"><div class="decomp-fill" style="width:24%;background:var(--conf-high);"></div></div><span class="decomp-value">12</span></div>
+                <div class="decomp-row"><span class="decomp-label">Entity</span><div class="decomp-track"><div class="decomp-fill" style="width:36%;background:var(--conf-medhigh);"></div></div><span class="decomp-value">18</span></div>
+                <div class="decomp-row"><span class="decomp-label">Ownership</span><div class="decomp-track"><div class="decomp-fill" style="width:30%;background:var(--conf-medium);"></div></div><span class="decomp-value">15</span></div>
+                <div class="decomp-row"><span class="decomp-label">Screening</span><div class="decomp-track"><div class="decomp-fill" style="width:34%;background:var(--conf-medium);"></div></div><span class="decomp-value">17</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-title">UBO Ownership <span class="panel-tag"><span class="conf-shape high"></span> 100% disclosed</span></div>
+            <div class="panel-content">
+              <div class="decomp-summary"><span class="decomp-num high">5</span><span class="decomp-max">parties</span><span class="decomp-band" style="margin-left:auto;">3 dir · 2 sh</span></div>
+              <div class="decomp-chart">
+                <div class="decomp-row"><span class="decomp-label">Ramesh K.</span><div class="decomp-track"><div class="decomp-fill" style="width:52%;background:var(--conf-high);"></div></div><span class="decomp-value">52%</span></div>
+                <div class="decomp-row"><span class="decomp-label">Priya K.</span><div class="decomp-track"><div class="decomp-fill" style="width:28%;background:var(--conf-high);"></div></div><span class="decomp-value">28%</span></div>
+                <div class="decomp-row"><span class="decomp-label">Anil V.</span><div class="decomp-track"><div class="decomp-fill" style="width:15%;background:var(--conf-high);"></div></div><span class="decomp-value">15%</span></div>
+                <div class="decomp-subhead">Shareholders</div>
+                <div class="decomp-row"><span class="decomp-label">Rekha S.</span><div class="decomp-track"><div class="decomp-fill" style="width:3%;background:var(--ink-ghost);"></div></div><span class="decomp-value muted">3%</span></div>
+                <div class="decomp-row"><span class="decomp-label">Kapil M.</span><div class="decomp-track"><div class="decomp-fill" style="width:2%;background:var(--ink-ghost);"></div></div><span class="decomp-value muted">2%</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="panel panel-hero-attention">
+            <div class="panel-title">Screening <span class="panel-tag"><span class="conf-shape medium"></span> 1 amber hit</span></div>
+            <div class="panel-content">
+              <div class="decomp-summary"><span class="decomp-num medium">73</span><span class="decomp-max">% match</span><span class="decomp-band" style="margin-left:auto;">Ramesh K. · PEP</span></div>
+              <div class="decomp-chart">
+                <div class="decomp-row"><span class="decomp-label">Name</span><div class="decomp-track"><div class="decomp-fill" style="width:73%;background:var(--conf-medium);"></div></div><span class="decomp-value">73%</span></div>
+                <div class="decomp-row"><span class="decomp-label">DOB</span><div class="decomp-track"><div class="decomp-fill" style="width:0%;"></div></div><span class="decomp-value danger">Mismatch</span></div>
+                <div class="decomp-row"><span class="decomp-label">Address</span><div class="decomp-track"><div class="decomp-fill" style="width:0%;"></div></div><span class="decomp-value muted">n/a</span></div>
+                <div class="decomp-row"><span class="decomp-label">Photo</span><div class="decomp-track"><div class="decomp-fill" style="width:0%;"></div></div><span class="decomp-value muted">n/a</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="decision-zone">
+          <div class="dz-label">Decision Zone · Rationale · v1</div>
+          <div class="dz-heading">Approve with Enhanced Monitoring (6 months)</div>
+          <div class="dz-draft">The entity's corporate structure is verified against MCA and GST sources <span class="ledger-ref">0x4a2c</span>. The screening hit on Ramesh Kumar is resolved: DOB mismatch (1961 vs 1978) rules out the PEP record, and no corroborating evidence supports the match. Medium risk-band driven primarily by ownership-clarity and screening. Enhanced monitoring for 6 months is appropriate for SME onboarding at this band, per policy §4.2.</div>
+          <div class="dz-actions">
+            <button class="btn primary">Commit Decision <span class="shortcut">⌘↵</span></button>
+            <button class="btn secondary">Save Draft</button>
+            <button class="btn secondary">Escalate to EDD</button>
+          </div>
+        </div>
+      </main>
+      <aside class="copilot-pane">
+        <div class="copilot-header">Agents · 7 of 8</div>
+        <div class="agent-list">
+          <div class="agent-row"><div class="agent-face supervisor"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Supervisor</div><div class="agent-status">Coordinating</div></div></div>
+          <div class="agent-row"><div class="agent-face docintel"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Doc Intelligence</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face entity"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Entity Verify</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face ubo"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">UBO Graph</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row needs-highlight"><div class="agent-face screening needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Screening</div><div class="agent-status needs">Needs input</div></div></div>
+          <div class="agent-row"><div class="agent-face risk"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Risk Scoring</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face writing working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Writing</div><div class="agent-status working">Drafting</div></div></div>
+          <div class="agent-row"><div class="agent-face chat"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Cockpit Chat</div><div class="agent-status">Idle</div></div></div>
+        </div>
+      </aside>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Mesh:</span><span class="pulse-dot"></span><span class="pulse-dot working"></span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span></div>
+      <div>SLA · 9m / 4h</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">CASE-7102 · v1 · ledger ready · 0x4a2c…f91e</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V2 · Reasoning Trace Slide-Out Open ============ -->
+<section class="view-section" id="v2">
+  <div class="view-header">
+    <h2>02 — Reasoning Trace Slide-Out Open</h2>
+    <div class="view-tagline">Priya clicks the amber Screening panel · the agent's mind opens</div>
+    <div class="pitch">The signature interaction. Priya clicks the Screening panel's amber pill; a 460-px drawer emerges from the right, canvas soft-dims to 55% opacity. Four fixed sections: <em>What searched · What hit · Confidence · What would change this.</em> The counterfactual section is visually distinguished with a subtle blue left-border — the "what would change your mind?" moment.</div>
+    <div class="traits">
+      <span class="trait">Canvas dimmed 55%</span>
+      <span class="trait">Drawer 460 px from right</span>
+      <span class="trait">Fixed 4-section schema</span>
+      <span class="trait">Counterfactual distinct</span>
+      <span class="trait">Esc closes</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="mode-switch"><div class="mode">Triage</div><div class="mode active">Investigation</div><div class="mode">Zen</div><div class="mode">Lens</div></div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">PR</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Queue</span><span>11</span></div>
+        <div class="queue-item"><div class="queue-name">Lalit Industries</div><div class="queue-meta"><span class="case-id">CASE-7019</span> · 14m · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item active"><div class="queue-name">Shree Venkat Trading</div><div class="queue-meta"><span class="case-id">CASE-7102</span> · 11m · <span class="conf-shape medium"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Naveen & Sons</div><div class="queue-meta"><span class="case-id">CASE-7103</span> · new · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Pragati Enterprises</div><div class="queue-meta"><span class="case-id">CASE-7098</span> · 32m · <span class="conf-shape low"></span></div></div>
+      </aside>
+      <main class="canvas dimmed" style="position:relative;">
+        <header class="canvas-header">
+          <div class="canvas-crumb">SME ONBOARDING · INDIA</div>
+          <h2 class="canvas-title">Shree Venkat Trading Pvt Ltd <span class="case-id-inline">CASE-7102 · v1</span></h2>
+          <div class="canvas-sub">Intake complete · 7 agents reported · reasoning trace open</div>
+        </header>
+        <div class="panels">
+          <div class="panel"><div class="panel-title">Entity Verification <span class="panel-tag"><span class="conf-shape high"></span> Verified</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num high">2</span><span class="decomp-max">/ 2 sources</span></div></div></div>
+          <div class="panel"><div class="panel-title">Risk Score <span class="panel-tag"><span class="conf-shape medium"></span> Medium</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num medium">62</span><span class="decomp-max">/ 100</span></div></div></div>
+          <div class="panel"><div class="panel-title">UBO Ownership <span class="panel-tag"><span class="conf-shape high"></span> 100%</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num high">5</span><span class="decomp-max">parties</span></div></div></div>
+          <div class="panel panel-hero-attention"><div class="panel-title">Screening <span class="panel-tag"><span class="conf-shape medium"></span> 1 amber hit</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num medium">73</span><span class="decomp-max">% match</span></div></div></div>
+        </div>
+        <div class="canvas-dim-layer"></div>
+        <!-- Slide-out -->
+        <aside class="slide-out overlay" style="opacity:1;pointer-events:auto;">
+          <div class="slide-out-header">
+            <div class="slide-out-title">
+              <div class="agent-face screening" style="width:32px;height:32px;"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div>
+              <div class="slide-out-title-text">
+                <span class="stt-name">Screening · Ramesh Kumar hit</span>
+                <span class="stt-sub">ComplyAdvantage · PEP list</span>
+              </div>
+            </div>
+            <span class="slide-out-close">Esc</span>
+          </div>
+          <div class="slide-out-body">
+            <div class="slide-out-section">
+              <div class="slide-out-section-label">What searched</div>
+              <div class="slide-out-section-body">
+                <div class="mono" style="line-height:1.7;">Name: Ramesh Kumar<br>DOB: 1978-04-15<br>Index: ComplyAdvantage Global Sanctions + PEP (IN)<br>Ran: 2026-04-24 09:52 IST</div>
+              </div>
+            </div>
+            <div class="slide-out-section">
+              <div class="slide-out-section-label">What hit</div>
+              <div class="slide-out-section-body">
+                <span class="key" style="color:var(--ink-primary);font-weight:500;">1 PEP record matched</span> · Ramesh Kumar (India)
+                <div class="decomp-chart" style="margin-top:10px;">
+                  <div class="decomp-row"><span class="decomp-label">Name match</span><div class="decomp-track"><div class="decomp-fill" style="width:73%;background:var(--conf-medium);"></div></div><span class="decomp-value">73%</span></div>
+                  <div class="decomp-row"><span class="decomp-label">DOB</span><div class="decomp-track"><div class="decomp-fill" style="width:0%;"></div></div><span class="decomp-value danger">1961</span></div>
+                </div>
+                <div style="margin-top:10px;font-size:11px;color:var(--ink-secondary);">Subject DOB 1978-04-15 · record DOB 1961-08-03 · <strong>mismatch 17y</strong></div>
+              </div>
+            </div>
+            <div class="slide-out-section">
+              <div class="slide-out-section-label">Confidence</div>
+              <div class="conf-display-large">
+                <span class="conf-shape medium"></span>
+                <span class="conf-num">62%</span>
+                <span class="conf-band-label">Medium</span>
+              </div>
+              <div style="font-size:11px;color:var(--ink-tertiary);line-height:1.5;">"Ramesh Kumar" is a common name in India (census rank #18). Name-only matches without corroborating identifiers typically resolve as false positives.</div>
+            </div>
+            <div class="slide-out-section">
+              <div class="slide-out-section-label">What would change this</div>
+              <div class="slide-out-section-body counterfactual">
+                <strong style="display:block;margin-bottom:4px;">Upgrade to High</strong> if DOB, address, or photo ID matches.<br>
+                <strong style="display:block;margin:8px 0 4px;">Downgrade to Low</strong> if address + photo confirm different person.<br>
+                <strong style="display:block;margin:8px 0 4px;">Block if uncertain</strong> — require PAN + Aadhaar cross-check.
+              </div>
+            </div>
+          </div>
+        </aside>
+      </main>
+      <aside class="copilot-pane">
+        <div class="copilot-header">Agents · 7 of 8</div>
+        <div class="agent-list">
+          <div class="agent-row"><div class="agent-face supervisor"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Supervisor</div><div class="agent-status">Coordinating</div></div></div>
+          <div class="agent-row"><div class="agent-face docintel"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Doc Intelligence</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face ubo"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">UBO Graph</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row needs-highlight"><div class="agent-face screening"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Screening</div><div class="agent-status needs">Open</div></div></div>
+          <div class="agent-row"><div class="agent-face risk"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Risk Scoring</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face writing working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Writing</div><div class="agent-status working">Drafting</div></div></div>
+        </div>
+      </aside>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Mesh:</span><span class="pulse-dot"></span><span class="pulse-dot working"></span><span class="pulse-dot"></span></div>
+      <div>Reasoning trace · Screening · Ramesh Kumar</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">CASE-7102 · v1</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V3 · UBO Canvas Full-Screen ============ -->
+<section class="view-section" id="v3">
+  <div class="view-header">
+    <h2>03 — UBO Canvas Full-Screen · Drag-Correct-and-Teach</h2>
+    <div class="view-tagline">Priya drags an edge to correct nominee-suspected UBO · agent asks to learn</div>
+    <div class="pitch">Full-fidelity force-directed graph expands over the cockpit. Entity at center; directors (sky) and shareholders (rose) arrayed around it; one Mauritius LLC node flagged <em>UBO unresolved</em>; a trust node just dragged to reveal the real beneficial owner. The correction modal captures the evidence and asks permission to teach.</div>
+    <div class="traits">
+      <span class="trait">Full-screen overlay</span>
+      <span class="trait">Force-directed graph</span>
+      <span class="trait">Drag-correct in progress</span>
+      <span class="trait">Teach? modal</span>
+      <span class="trait">Learning event opt-in</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="mode-switch"><div class="mode">Triage</div><div class="mode active">Investigation</div><div class="mode">Zen</div><div class="mode">Lens</div></div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">PR</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Queue</span><span>8</span></div>
+        <div class="queue-item active"><div class="queue-name">Sureshwara Enterprises LLP</div><div class="queue-meta"><span class="case-id">CASE-7088</span> · 23m · <span class="conf-shape low"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Orion Metals</div><div class="queue-meta"><span class="case-id">CASE-7097</span> · 41m · <span class="conf-shape medhigh"></span></div></div>
+      </aside>
+      <main class="canvas" style="position:relative;">
+        <header class="canvas-header">
+          <div class="canvas-crumb">SME ONBOARDING · INDIA · EDD TRACK</div>
+          <h2 class="canvas-title">Sureshwara Enterprises LLP <span class="case-id-inline">CASE-7088 · v1</span></h2>
+          <div class="canvas-sub">UBO review in progress · red flags detected</div>
+        </header>
+
+        <!-- Full-screen overlay -->
+        <div class="fullscreen-overlay" style="opacity:1;">
+          <div class="ubo-fullview">
+            <div class="ubo-header">
+              <div class="ubo-title">UBO Canvas <span class="case-id-inline">Sureshwara Enterprises LLP</span></div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <span style="font-size:11px;color:var(--ink-tertiary);">Drag edges to correct · <span class="shortcut" style="margin-left:0;">E</span> keyboard mode · <span class="shortcut" style="margin-left:2px;">Esc</span> close</span>
+              </div>
+            </div>
+            <div class="ubo-body">
+              <div class="ubo-graph-area">
+                <svg viewBox="0 0 800 500" style="width:100%;height:100%;" preserveAspectRatio="xMidYMid meet">
+                  <!-- Existing edges (unresolved) -->
+                  <line x1="400" y1="250" x2="170" y2="110" stroke="#DC2626" stroke-width="1.8" stroke-dasharray="5 3" opacity="0.6"/>
+                  <line x1="400" y1="250" x2="400" y2="90" stroke="#DC2626" stroke-width="1.8" stroke-dasharray="5 3" opacity="0.6"/>
+                  <line x1="400" y1="250" x2="630" y2="110" stroke="#DC2626" stroke-width="1.8" stroke-dasharray="5 3" opacity="0.6"/>
+                  <line x1="400" y1="250" x2="140" y2="390" stroke="#D4D4D8" stroke-width="1.2" opacity="0.8"/>
+                  <line x1="400" y1="250" x2="660" y2="390" stroke="#D4D4D8" stroke-width="1.2" opacity="0.8"/>
+                  <!-- Active drag edge (in progress) -->
+                  <line x1="660" y1="390" x2="540" y2="420" stroke="#65A30D" stroke-width="2.4" stroke-dasharray="4 4" opacity="0.85">
+                    <animate attributeName="stroke-dashoffset" from="0" to="8" dur="0.6s" repeatCount="indefinite"/>
+                  </line>
+                  <!-- Edge labels -->
+                  <text x="260" y="180" font-size="12" fill="#DC2626" font-weight="600" font-family="JetBrains Mono">nominee?</text>
+                  <text x="395" y="165" font-size="12" fill="#DC2626" font-weight="600" font-family="JetBrains Mono">nominee?</text>
+                  <text x="510" y="180" font-size="12" fill="#DC2626" font-weight="600" font-family="JetBrains Mono">nominee?</text>
+                  <text x="258" y="320" font-size="11" fill="#71717A" font-family="JetBrains Mono">18%</text>
+                  <text x="528" y="320" font-size="11" fill="#71717A" font-family="JetBrains Mono">22% (trust)</text>
+                  <text x="580" y="412" font-size="11" fill="#65A30D" font-weight="600" font-family="JetBrains Mono">real UBO?</text>
+                  <!-- Entity (center) -->
+                  <circle cx="400" cy="250" r="38" fill="#FAFAF9" stroke="#0A0A0A" stroke-width="2"/>
+                  <text x="400" y="248" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="700">SURESHWARA</text>
+                  <text x="400" y="262" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="700">ENTERPRISES</text>
+                  <!-- Directors (red — nominee suspected) -->
+                  <circle cx="170" cy="110" r="28" fill="#FECDD3" stroke="#DC2626" stroke-width="2" stroke-dasharray="3 3"/>
+                  <text x="170" y="114" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="600">NK</text>
+                  <text x="170" y="82" font-size="10" text-anchor="middle" fill="#52525B">Narinder K.</text>
+                  <text x="170" y="148" font-size="9" text-anchor="middle" fill="#DC2626" font-family="JetBrains Mono">nominee?</text>
+                  <circle cx="400" cy="90" r="26" fill="#FECDD3" stroke="#DC2626" stroke-width="2" stroke-dasharray="3 3"/>
+                  <text x="400" y="94" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="600">SK</text>
+                  <text x="400" y="62" font-size="10" text-anchor="middle" fill="#52525B">Suresh K.</text>
+                  <text x="400" y="128" font-size="9" text-anchor="middle" fill="#DC2626" font-family="JetBrains Mono">nominee?</text>
+                  <circle cx="630" cy="110" r="24" fill="#FECDD3" stroke="#DC2626" stroke-width="2" stroke-dasharray="3 3"/>
+                  <text x="630" y="114" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="600">AD</text>
+                  <text x="630" y="82" font-size="10" text-anchor="middle" fill="#52525B">Ashok D.</text>
+                  <!-- Shareholders -->
+                  <circle cx="140" cy="390" r="20" fill="#FED7AA" stroke="#D4D4D8" stroke-width="1.5"/>
+                  <text x="140" y="394" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="600">RS</text>
+                  <text x="140" y="425" font-size="10" text-anchor="middle" fill="#52525B">Ramesh S.</text>
+                  <!-- Mauritius LLC (unresolved) -->
+                  <rect x="630" y="370" width="60" height="40" rx="6" fill="#FEE2E2" stroke="#DC2626" stroke-width="2"/>
+                  <text x="660" y="388" font-size="9" text-anchor="middle" fill="#0A0A0A" font-weight="700">MAURITIUS</text>
+                  <text x="660" y="402" font-size="9" text-anchor="middle" fill="#0A0A0A" font-weight="700">LLC</text>
+                  <text x="660" y="432" font-size="9" text-anchor="middle" fill="#DC2626" font-family="JetBrains Mono">UBO unresolved</text>
+                  <!-- Trust node being dragged -->
+                  <circle cx="540" cy="420" r="22" fill="#DDD6FE" stroke="#65A30D" stroke-width="2.5"/>
+                  <text x="540" y="424" font-size="10" text-anchor="middle" fill="#0A0A0A" font-weight="700">TRUST</text>
+                  <text x="540" y="455" font-size="9" text-anchor="middle" fill="#65A30D" font-family="JetBrains Mono">dragging…</text>
+                </svg>
+              </div>
+              <div class="ubo-side-panel">
+                <div class="ubo-detail-title">Mauritius LLC <span class="tag">selected</span></div>
+                <div class="ubo-detail-field"><span class="l">Entity type</span><span class="v">Foreign LLC</span></div>
+                <div class="ubo-detail-field"><span class="l">Jurisdiction</span><span class="v">MU</span></div>
+                <div class="ubo-detail-field"><span class="l">MCA data</span><span class="v" style="color:var(--conf-low);">None</span></div>
+                <div class="ubo-detail-field"><span class="l">Stake</span><span class="v">22%</span></div>
+                <div class="ubo-detail-field"><span class="l">UBO conf.</span><span class="v" style="color:var(--conf-low);">0%</span></div>
+                <div style="margin-top:14px;padding:10px;background:var(--surface-warm);border-radius:6px;font-size:11px;color:var(--ink-secondary);line-height:1.55;border-left:2px solid var(--conf-low);">
+                  <span class="key" style="color:var(--ink-primary);font-weight:500;">Agent note:</span> Jurisdictional opacity; no public UBO data; likely shell vehicle. Officer input required.
+                </div>
+              </div>
+              <!-- Correction modal -->
+              <div class="ubo-correction-modal">
+                <div class="cm-label">Drag-correct · teach?</div>
+                <div class="cm-title">Trust → Real UBO</div>
+                <div style="font-size:11px;color:var(--ink-secondary);margin-bottom:10px;line-height:1.5;">Name this correction and attach supporting evidence.</div>
+                <input type="text" value="Real UBO via RM email 2024-11" style="font-family:var(--font-sans);"/>
+                <div style="font-size:10px;color:var(--ink-tertiary);margin-bottom:8px;font-family:var(--font-mono);">Evidence: rm-email-nov-2024.pdf · 0x8a3f…c204 ✓</div>
+                <div class="teach-toggle">
+                  <div class="toggle"></div>
+                  <div>Teach agent for future shell/nominee detection</div>
+                </div>
+                <div class="cm-actions">
+                  <button class="btn primary" style="flex:1;">Commit <span class="shortcut">⌘↵</span></button>
+                  <button class="btn secondary">Cancel</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Mesh:</span><span class="pulse-dot working"></span><span class="pulse-dot"></span></div>
+      <div>UBO Canvas · drag-correct mode · Trust → Real UBO</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">CASE-7088 · pending ledger: UBO correction · evidence · learning · decision</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V4 · Zen Mode (SAR/EDD Writing) ============ -->
+<section class="view-section" id="v4">
+  <div class="view-header">
+    <h2>04 — Zen Mode · SAR/EDD Writing</h2>
+    <div class="view-tagline">⌘+4 · the air changes · dark canvas · Source Serif body · evidence docked right</div>
+    <div class="pitch">The cockpit reconfigures into a writing environment. Queue Rail and Agent Copilot Pane recede. A 720-px column holds the EDD memo in Source Serif 18 px. Agent-drafted text with officer edits visible as lime highlights. Ledger citations live inline in monospace. Evidence Dock on the right carries the RM email, UBO correction evidence, and the Writing agent's breathing face.</div>
+    <div class="traits">
+      <span class="trait">Dark theme</span>
+      <span class="trait">Source Serif 18 px</span>
+      <span class="trait">720 px writing column</span>
+      <span class="trait">Evidence Dock right</span>
+      <span class="trait">Inline lime edits</span>
+      <span class="trait">Ledger refs inline</span>
+    </div>
+  </div>
+  <div class="zen-cockpit">
+    <header class="zen-topbar">
+      <div class="zen-mode-indicator">
+        <div class="brand-mark"></div>
+        <span class="zen-mode-label">Mode <span class="current">⌘+4 · SAR/EDD Writing</span></span>
+      </div>
+      <span style="font-size:11px;color:var(--zen-ink-secondary);font-family:var(--font-mono);">CASE-7088 · EDD · Sureshwara Enterprises LLP</span>
+      <div class="palette-hint">⌘K</div>
+    </header>
+    <div class="zen-body">
+      <div class="zen-column">
+        <div class="zen-edd-label">EDD Memo · v1 · Draft</div>
+        <h2 class="zen-edd-title">Enhanced Due Diligence — Sureshwara Enterprises LLP</h2>
+        <div class="zen-edd-body">
+          <p>This memo documents the enhanced due diligence review of Sureshwara Enterprises LLP (<span class="ledger-ref">CASE-7088</span>) following the detection of three nominee-suspected directorships and one foreign-domicile holding with no publicly resolvable beneficial ownership.</p>
+          <p>The Mauritius LLC holding (22% stake) was <span class="edit">resolved through an officer-attached email from the relationship manager dated November 2024</span>, which discloses the true beneficial owner as a private family trust. <span class="edit">The trust is administered by a known individual of Indian nationality with existing banking relationship and no adverse screening hits.</span> Evidence attached at <span class="ledger-ref">0x8a3f…c204</span>.</p>
+          <p>Nominee-director heuristics flagged three individuals sharing a registered address with a filing agent in Mumbai (<span class="ledger-ref">0x4a2c…f91e</span>). <span class="edit">While structurally unusual, the combination of (i) disclosed UBO through the corrected chain, (ii) clean adverse media, and (iii) SME-appropriate transaction patterns supports a risk-acceptable onboarding.</span></p>
+          <p>Recommendation: <strong>Proceed with enhanced monitoring — 3-month review cadence, with re-review triggered by any screening delta on the disclosed UBO or changes in corporate structure.</strong></p>
+        </div>
+        <div class="zen-edd-footer">
+          <span>Auto-saved · just now</span>
+          <span style="margin-left:auto;">f — toggle focus mode</span>
+        </div>
+      </div>
+      <div class="zen-dock">
+        <div class="zen-dock-section">
+          <div class="zen-dock-section-label">Writing agent</div>
+          <div class="zen-dock-item">
+            <div class="agent-face writing working" style="width:30px;height:30px;"><div class="eyes"><div class="eye" style="background:#FAFAF9;"></div><div class="eye" style="background:#FAFAF9;"></div></div></div>
+            <div>
+              <div class="zen-name">Drafting v2</div>
+              <div class="zen-hash">cites 3 ledger entries</div>
+            </div>
+          </div>
+        </div>
+        <div class="zen-dock-section">
+          <div class="zen-dock-section-label">Evidence · 3 items</div>
+          <div class="zen-dock-item">
+            <span class="conf-shape high"></span>
+            <div>
+              <div class="zen-name">rm-email-nov-2024.pdf</div>
+              <div class="zen-hash">0x8a3f…c204</div>
+            </div>
+          </div>
+          <div class="zen-dock-item">
+            <span class="conf-shape high"></span>
+            <div>
+              <div class="zen-name">UBO correction · trust</div>
+              <div class="zen-hash">0x4a2c…f91e</div>
+            </div>
+          </div>
+          <div class="zen-dock-item">
+            <span class="conf-shape high"></span>
+            <div>
+              <div class="zen-name">Screening bundle</div>
+              <div class="zen-hash">0xb17e…203a</div>
+            </div>
+          </div>
+        </div>
+        <div class="zen-dock-section">
+          <div class="zen-dock-section-label">Stats</div>
+          <div style="font-size:11px;color:var(--zen-ink-secondary);line-height:1.8;font-family:var(--font-mono);">
+            Length · 287 words<br>
+            Edit rate · 34%<br>
+            Citations · 3<br>
+            Time · 4m 12s
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="zen-bottom-bar">
+      <span>Zen Mode · distraction-free · auto-save on</span>
+      <div class="zen-commit-hint">Sealed when you commit <span class="shortcut" style="background:var(--zen-bg-panel);color:var(--zen-ink-primary);border-color:var(--zen-vein);">⌘↵</span></div>
+      <span>Back to Investigation <span class="shortcut" style="background:var(--zen-bg-panel);color:var(--zen-ink-primary);border-color:var(--zen-vein);">⌘+2</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ V5 · Team Lead Approval View ============ -->
+<section class="view-section" id="v5">
+  <div class="view-header">
+    <h2>05 — Team Lead Approval View</h2>
+    <div class="view-tagline">Rohan's cockpit · dedicated approval queue · Audit Trail replaces Copilot Pane</div>
+    <div class="pitch">Team Lead auto-routes to this view on login. The Queue Rail becomes an Approval Queue (2 pending). The Case Canvas renders read-only (canvas is stamped, panels don't edit). The right rail is the Audit Trail, showing every agent + officer action signed and timestamped. The Decision Zone is replaced by a Team Lead Action surface with three verbs: Approve with Conditions (primary pill), Decline, Return with Comment.</div>
+    <div class="traits">
+      <span class="trait">Role: Team Lead</span>
+      <span class="trait">Approval Queue pinned</span>
+      <span class="trait">Read-only canvas</span>
+      <span class="trait">Audit Trail right rail</span>
+      <span class="trait">Approve / Decline / Return</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="role-badge">Team Lead · Rohan Shah</div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">RS</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Approvals</span><span>2</span></div>
+        <div class="queue-item active"><div class="queue-name">Sureshwara Enterprises LLP</div><div class="queue-meta"><span class="case-id">CASE-7088</span> · EDD · Priya K.</div></div>
+        <div class="queue-item"><div class="queue-name">Orion Metals Pvt Ltd</div><div class="queue-meta"><span class="case-id">CASE-7097</span> · EDD · Arjun M.</div></div>
+        <div class="queue-header" style="margin-top:12px;"><span>Team cases</span><span>18</span></div>
+        <div class="queue-filter" style="margin-top:4px;"><span class="qf active">All</span><span class="qf">Closed</span></div>
+        <div class="queue-item"><div class="queue-name">Lalit Industries</div><div class="queue-meta"><span class="case-id">CASE-7019</span> · Priya · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item closed"><div class="queue-name">Shree Venkat Trading</div><div class="queue-meta"><span class="case-id">CASE-7102</span> · Priya</div></div>
+      </aside>
+      <main class="canvas">
+        <header class="canvas-header">
+          <div class="canvas-crumb">SME ONBOARDING · INDIA · EDD TRACK<span style="float:right;"><span class="readonly-badge">READ-ONLY</span></span></div>
+          <h2 class="canvas-title">Sureshwara Enterprises LLP <span class="case-id-inline">CASE-7088 · v1 · pending approval</span></h2>
+          <div class="canvas-sub">Submitted by Priya Kumar · UBO correction + EDD memo · 4m ago</div>
+        </header>
+        <div class="panels">
+          <div class="panel"><div class="panel-title">Entity Verification <span class="panel-tag"><span class="conf-shape high"></span> Verified</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num high">2</span><span class="decomp-max">/ 2 sources</span></div><div style="font-size:11px;color:var(--ink-secondary);margin-top:6px;">MCA · GST · Structure match · 3 directors</div></div></div>
+          <div class="panel"><div class="panel-title">Risk Score <span class="panel-tag"><span class="conf-shape low"></span> High · post-correction</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num low">78</span><span class="decomp-max">/ 100</span><span class="decomp-band" style="margin-left:auto;">↑ from 62</span></div><div style="font-size:11px;color:var(--ink-secondary);margin-top:6px;">Ownership-clarity · screening · jurisdictional opacity</div></div></div>
+          <div class="panel"><div class="panel-title">UBO Ownership <span class="panel-tag"><span class="conf-shape medhigh"></span> corrected</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num medhigh">6</span><span class="decomp-max">parties</span><span class="decomp-band" style="margin-left:auto;">1 via trust</span></div><div style="font-size:11px;color:var(--ink-secondary);margin-top:6px;">3 dir · 2 sh · 1 trust UBO (officer correction)</div></div></div>
+          <div class="panel"><div class="panel-title">Screening <span class="panel-tag"><span class="conf-shape high"></span> Clean</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num high">0</span><span class="decomp-max">active hits</span></div><div style="font-size:11px;color:var(--ink-secondary);margin-top:6px;">All hits resolved · corrected UBO clean</div></div></div>
+        </div>
+        <div class="team-lead-actions">
+          <div class="tl-label">Team Lead Action · Rohan Shah</div>
+          <div class="tl-summary">
+            <span class="key">Priya's recommendation:</span> Proceed with enhanced monitoring — 3-month review cadence. EDD memo 287 words · 34% officer edit-rate · 3 ledger citations.
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--vein-soft);font-size:11px;color:var(--ink-tertiary);">Audit trail: UBO correction <span style="font-family:var(--font-mono);">0x4a2c</span> · evidence <span style="font-family:var(--font-mono);">0x8a3f</span> · learning event logged · decision signed by Priya</div>
+          </div>
+          <div class="tl-actions">
+            <button class="btn primary">Approve with Conditions <span class="shortcut">⌘↵</span></button>
+            <button class="btn secondary">Return with Comment</button>
+            <button class="btn danger">Decline</button>
+          </div>
+        </div>
+      </main>
+      <aside class="copilot-pane" style="width:300px;">
+        <div class="audit-panel" style="padding:0;">
+          <div class="audit-header" style="padding:12px 14px 8px;">Audit Trail · 8 events</div>
+          <div style="padding:0 10px 14px;">
+            <div class="audit-entry"><div class="audit-entry-marker agent docintel"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Doc Intelligence</span><span class="audit-entry-time">10:14</span></div><div class="audit-entry-action">Extracted 23 fields</div><div class="audit-entry-hash">0xa9d7<span class="sig-ok">✓</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker agent entity"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Entity Verify</span><span class="audit-entry-time">10:15</span></div><div class="audit-entry-action">MCA + GST confirmed</div><div class="audit-entry-hash">0xb2f1<span class="sig-ok">✓</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker agent ubo"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">UBO Graph</span><span class="audit-entry-time">10:17</span></div><div class="audit-entry-action">Nominee flags · Mauritius unresolved</div><div class="audit-entry-hash">0xc3e4<span class="sig-ok">✓</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker agent screening"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Screening</span><span class="audit-entry-time">10:18</span></div><div class="audit-entry-action">All parties · initial scan</div><div class="audit-entry-hash">0xd5a2<span class="sig-ok">✓</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker officer">P</div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Priya Kumar</span><span class="audit-entry-time">10:42</span></div><div class="audit-entry-action">UBO correction · Trust → Real UBO</div><div class="audit-entry-hash">0x4a2c<span class="sig-ok">✓ signed</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker officer">P</div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Priya Kumar</span><span class="audit-entry-time">10:43</span></div><div class="audit-entry-action">Attach rm-email-nov-2024.pdf</div><div class="audit-entry-hash">0x8a3f<span class="sig-ok">✓ signed</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker agent ubo"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">UBO Graph</span><span class="audit-entry-time">10:44</span></div><div class="audit-entry-action">Learning event · shell/nominee pattern</div><div class="audit-entry-hash">0xe7bc<span class="sig-ok">✓</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker agent writing"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Writing</span><span class="audit-entry-time">10:52</span></div><div class="audit-entry-action">EDD memo draft · 287 words</div><div class="audit-entry-hash">0xf91e<span class="sig-ok">✓</span></div></div></div>
+            <div class="audit-entry"><div class="audit-entry-marker officer">P</div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Priya Kumar</span><span class="audit-entry-time">10:58</span></div><div class="audit-entry-action">Decision · Approve w/ EM · pending Lead</div><div class="audit-entry-hash">0x5c8d<span class="sig-ok">✓ signed</span></div></div></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Mesh:</span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span></div>
+      <div>Team Lead approval queue · 2 pending</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">Rohan Shah · signed-in 14m ago</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V6 · Regulator Lens ============ -->
+<section class="view-section" id="v6">
+  <div class="view-header">
+    <h2>06 — Regulator Lens Mode</h2>
+    <div class="view-tagline">Anika's cockpit · audit-framed · timeline-centric · export-ready</div>
+    <div class="pitch">Auditor role auto-routes into Regulator Lens. The cockpit reconfigures: Queue Rail has multi-select checkboxes (5 of 12 cases selected); the Canvas becomes a timeline of closed cases with hash chains visible; the Decision Zone is replaced by an Export Bundle bar at the bottom. Every ledger entry shows its hash and signature status (✓ signed). No Decision Zone. No editing. The UI is read-only by role.</div>
+    <div class="traits">
+      <span class="trait">Role: Auditor</span>
+      <span class="trait">Read-only everywhere</span>
+      <span class="trait">Multi-select queue</span>
+      <span class="trait">Timeline layout</span>
+      <span class="trait">Hash chain visible</span>
+      <span class="trait">Export Bundle bar</span>
+    </div>
+  </div>
+  <div class="cockpit lens-cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="role-badge">Auditor · Anika Reddy</div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">AR</div></div>
+    </header>
+    <div class="lens-bar">
+      <div class="lens-label">Regulator Lens · closed cases · Q1 2026</div>
+      <div class="lens-meta">audit-framed · read-only · hash chain verified</div>
+    </div>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Closed cases</span><span>12</span></div>
+        <div class="queue-filter"><span class="qf active">All</span><span class="qf">High-risk</span><span class="qf">EDD</span></div>
+        <div style="font-size:10px;color:var(--conf-medhigh);margin:6px 6px 10px;font-weight:600;">5 selected</div>
+        <div class="queue-item multi-selected"><div class="queue-name">Shree Venkat Trading</div><div class="queue-meta"><span class="case-id">CASE-7102</span> · <span class="conf-shape medium"></span></div></div>
+        <div class="queue-item multi-selected"><div class="queue-name">Sureshwara Enterprises LLP</div><div class="queue-meta"><span class="case-id">CASE-7088</span> · EDD · <span class="conf-shape low"></span></div></div>
+        <div class="queue-item multi-selected"><div class="queue-name">Orion Metals</div><div class="queue-meta"><span class="case-id">CASE-7097</span> · <span class="conf-shape medhigh"></span></div></div>
+        <div class="queue-item multi-selected"><div class="queue-name">Lalit Industries</div><div class="queue-meta"><span class="case-id">CASE-7019</span> · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item multi-selected"><div class="queue-name">Pragati Enterprises</div><div class="queue-meta"><span class="case-id">CASE-7098</span> · <span class="conf-shape medium"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Naveen & Sons</div><div class="queue-meta"><span class="case-id">CASE-7103</span> · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Cascade Exports</div><div class="queue-meta"><span class="case-id">CASE-7096</span> · <span class="conf-shape high"></span></div></div>
+      </aside>
+      <main class="canvas">
+        <div class="lens-timeline-area">
+          <div class="lens-timeline-case">
+            <div class="lens-timeline-case-header">
+              <div class="lens-timeline-case-title">Shree Venkat Trading <span class="case-id-inline">CASE-7102 · closed 2026-04-24</span></div>
+              <div class="lens-timeline-case-meta">8 events · signed · sealed</div>
+            </div>
+            <div class="audit-panel" style="padding:0;gap:6px;">
+              <div class="audit-entry"><div class="audit-entry-marker agent screening"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Screening</span><span class="audit-entry-time">10:18 IST</span></div><div class="audit-entry-action">Ramesh Kumar · 73% name match · DOB mismatch</div></div></div>
+              <div class="audit-entry"><div class="audit-entry-marker officer">P</div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Priya Kumar</span><span class="audit-entry-time">10:34 IST</span></div><div class="audit-entry-action">Decision · Approve w/ Enhanced Monitoring · 6mo</div></div></div>
+            </div>
+            <div class="lens-chain">
+              <div class="lens-chain-label">Hash chain · 8 entries</div>
+              <div class="lens-chain-row"><span class="chain-idx">#1</span><span class="chain-desc">Doc Intelligence · extracted 23 fields</span><span class="chain-hash">0xa9d7…2b4f<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#2</span><span class="chain-desc">Entity · MCA + GST verified</span><span class="chain-hash">0xb2f1…e8a3<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#3</span><span class="chain-desc">UBO · 3 dir · 2 sh · high conf</span><span class="chain-hash">0xc3e4…9dc1<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#4</span><span class="chain-desc">Screening · 1 amber hit</span><span class="chain-hash">0xd5a2…1fc9<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#5</span><span class="chain-desc">Risk Scoring · 62/100 Medium</span><span class="chain-hash">0xe6c8…7b32<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#6</span><span class="chain-desc">Writing · rationale draft · 240 words</span><span class="chain-hash">0xf91e…0a4b<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#7</span><span class="chain-desc">Priya Kumar · rationale edit · 38% diff</span><span class="chain-hash">0x127a…9e3f<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#8</span><span class="chain-desc">Priya Kumar · decision commit · signed</span><span class="chain-hash">0x4a2c…f91e<span class="sig-badge ok">✓</span></span></div>
+            </div>
+          </div>
+
+          <div class="lens-timeline-case">
+            <div class="lens-timeline-case-header">
+              <div class="lens-timeline-case-title">Sureshwara Enterprises LLP <span class="case-id-inline">CASE-7088 · closed 2026-04-24 · EDD</span></div>
+              <div class="lens-timeline-case-meta">12 events · signed · sealed</div>
+            </div>
+            <div class="audit-panel" style="padding:0;gap:6px;">
+              <div class="audit-entry"><div class="audit-entry-marker agent ubo"><span></span></div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">UBO Graph</span><span class="audit-entry-time">10:17 IST</span></div><div class="audit-entry-action">Nominee flags · Mauritius LLC UBO unresolved</div></div></div>
+              <div class="audit-entry"><div class="audit-entry-marker officer">P</div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Priya Kumar</span><span class="audit-entry-time">10:42 IST</span></div><div class="audit-entry-action">UBO correction · Trust → real UBO · learning event</div></div></div>
+              <div class="audit-entry"><div class="audit-entry-marker officer">R</div><div class="audit-entry-body"><div class="audit-entry-top"><span class="audit-entry-actor">Rohan Shah</span><span class="audit-entry-time">11:24 IST</span></div><div class="audit-entry-action">Approve w/ conditions · 3mo monitoring</div></div></div>
+            </div>
+            <div class="lens-chain">
+              <div class="lens-chain-label">Hash chain · 12 entries · showing last 4</div>
+              <div class="lens-chain-row"><span class="chain-idx">#9</span><span class="chain-desc">Priya · UBO correction</span><span class="chain-hash">0x4a2c…f91e<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#10</span><span class="chain-desc">Priya · evidence attach</span><span class="chain-hash">0x8a3f…c204<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#11</span><span class="chain-desc">Priya · decision commit</span><span class="chain-hash">0x5c8d…a1b2<span class="sig-badge ok">✓</span></span></div>
+              <div class="lens-chain-row"><span class="chain-idx">#12</span><span class="chain-desc">Rohan · approval commit</span><span class="chain-hash">0x7e41…d4c9<span class="sig-badge ok">✓</span></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="lens-export-bar">
+          <div class="lens-export-summary"><span class="selected">5 cases</span> selected · 47 ledger entries · ~2.4 MB bundle</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:10px;color:var(--ink-tertiary);font-family:var(--font-mono);">includes offline verifier tool</span>
+            <button class="btn primary">Export Bundle · PDF + JSON</button>
+          </div>
+        </div>
+      </main>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Ledger:</span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span></div>
+      <div>Hash chain verified · 0 integrity failures</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">Anika Reddy · Auditor · RBI inspection 2026-05-15</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V7 · Commit + Undo Pill ============ -->
+<section class="view-section" id="v7">
+  <div class="view-header">
+    <h2>07 — Commit Sealed · Undo Window Active</h2>
+    <div class="view-tagline">The ceremonial moment · 120-sec undo · toast confirms ledger seal</div>
+    <div class="pitch">Priya has just pressed ⌘+Enter. Commit button faded into a "Committed" pill. UndoPill with 120-sec countdown ring sits centered at the bottom. A toast in the top-right confirms the ledger seal with the hash prefix. Queue Rail shows the case now marked closed. The rest of the cockpit has eased into post-commit calm — dim on the Case Canvas panels, focused elevation on the Decision Zone.</div>
+    <div class="traits">
+      <span class="trait">Post-commit state</span>
+      <span class="trait">UndoPill · 120s countdown</span>
+      <span class="trait">Ledger seal toast</span>
+      <span class="trait">Queue case closed</span>
+      <span class="trait">Elevated Decision Zone</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="mode-switch"><div class="mode">Triage</div><div class="mode active">Investigation</div><div class="mode">Zen</div><div class="mode">Lens</div></div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">PR</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Queue</span><span>10</span></div>
+        <div class="queue-item"><div class="queue-name">Lalit Industries</div><div class="queue-meta"><span class="case-id">CASE-7019</span> · 14m · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item closed active"><div class="queue-name">Shree Venkat Trading</div><div class="queue-meta"><span class="case-id">CASE-7102</span> · sealed · <span class="conf-shape medium"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Naveen & Sons</div><div class="queue-meta"><span class="case-id">CASE-7103</span> · new · <span class="conf-shape high"></span></div></div>
+        <div class="queue-item"><div class="queue-name">Pragati Enterprises</div><div class="queue-meta"><span class="case-id">CASE-7098</span> · 32m · <span class="conf-shape low"></span></div></div>
+      </aside>
+      <main class="canvas" style="position:relative;">
+        <header class="canvas-header" style="opacity:0.6;">
+          <div class="canvas-crumb">SME ONBOARDING · INDIA</div>
+          <h2 class="canvas-title">Shree Venkat Trading Pvt Ltd <span class="case-id-inline">CASE-7102 · v1 · sealed</span></h2>
+          <div class="canvas-sub">Sealed to ledger · j to advance to next case</div>
+        </header>
+        <div class="panels" style="opacity:0.45;">
+          <div class="panel"><div class="panel-title">Entity Verification <span class="panel-tag"><span class="conf-shape high"></span> Verified</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num high">2</span><span class="decomp-max">/ 2 sources</span></div></div></div>
+          <div class="panel"><div class="panel-title">Risk Score <span class="panel-tag"><span class="conf-shape medium"></span> Medium</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num medium">62</span><span class="decomp-max">/ 100</span></div></div></div>
+          <div class="panel"><div class="panel-title">UBO Ownership <span class="panel-tag"><span class="conf-shape high"></span> 100%</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num high">5</span><span class="decomp-max">parties</span></div></div></div>
+          <div class="panel"><div class="panel-title">Screening <span class="panel-tag"><span class="conf-shape medium"></span> Resolved</span></div><div class="panel-content"><div class="decomp-summary"><span class="decomp-num medium">73</span><span class="decomp-max">% · dismissed</span></div></div></div>
+        </div>
+        <div class="decision-zone focused">
+          <div class="dz-label">Decision Zone · v1 · committed</div>
+          <div class="dz-heading">Approve with Enhanced Monitoring (6 months)</div>
+          <div class="dz-draft">The entity's corporate structure is verified against MCA and GST sources <span class="ledger-ref">0x4a2c</span>. <span class="edit">DOB mismatch (1961 vs 1978) rules out the PEP match; name is common, no corroborating evidence.</span> Medium risk-band driven primarily by ownership-clarity and screening. <span class="edit">Enhanced monitoring for 6 months is appropriate for SME onboarding at this band, per policy §4.2.</span></div>
+          <div class="dz-actions">
+            <div class="dz-committed"><span class="seal-mark">✓</span>Committed · sealed at 10:34 IST</div>
+            <span style="margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--ink-tertiary);">hash 0x4a2c…f91e</span>
+          </div>
+        </div>
+        <!-- Toast -->
+        <div class="toast-container">
+          <div class="toast">
+            <span class="toast-icon">✓</span>
+            <span class="toast-text">Sealed to ledger</span>
+            <span class="toast-meta">0x4a2c…f91e</span>
+          </div>
+        </div>
+        <!-- Undo pill -->
+        <div class="undo-pill-container">
+          <div class="undo-pill">
+            <div class="undo-countdown"><span>117</span></div>
+            <span class="undo-text">Undo</span>
+            <span class="undo-meta">⌘Z · 117s remaining</span>
+          </div>
+        </div>
+      </main>
+      <aside class="copilot-pane">
+        <div class="copilot-header">Agents · 8 of 8 complete</div>
+        <div class="agent-list">
+          <div class="agent-row"><div class="agent-face supervisor complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Supervisor</div><div class="agent-status complete">Sealed</div></div></div>
+          <div class="agent-row"><div class="agent-face docintel"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Doc Intelligence</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face entity"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Entity Verify</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face ubo"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">UBO Graph</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face screening"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Screening</div><div class="agent-status complete">Resolved</div></div></div>
+          <div class="agent-row"><div class="agent-face risk"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Risk Scoring</div><div class="agent-status complete">Complete</div></div></div>
+          <div class="agent-row"><div class="agent-face writing"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Writing</div><div class="agent-status complete">Committed</div></div></div>
+          <div class="agent-row"><div class="agent-face chat"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><div class="agent-info"><div class="agent-name">Cockpit Chat</div><div class="agent-status">Idle</div></div></div>
+        </div>
+      </aside>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Mesh:</span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span><span class="pulse-dot"></span></div>
+      <div>Decision sealed · j to next case</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">CASE-7102 · sealed · ledger verified</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V8 · Command Palette ============ -->
+<section class="view-section" id="v8">
+  <div class="view-header">
+    <h2>08 — Command Palette Open</h2>
+    <div class="view-tagline">⌘K · universal find · actions · cases · agents · help in one surface</div>
+    <div class="pitch">The single action entrypoint. Any cockpit action is typable. Results group by type: Cases, Actions, Agents, Help. Fuzzy match is default; exact match when a CASE-#### ID is typed. Keyboard hints shown inline. Footer shows navigation keys.</div>
+    <div class="traits">
+      <span class="trait">Fuzzy search</span>
+      <span class="trait">Grouped results</span>
+      <span class="trait">Inline keyboard hints</span>
+      <span class="trait">cmdk-backed</span>
+      <span class="trait">600 px width</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="mode-switch"><div class="mode">Triage</div><div class="mode active">Investigation</div><div class="mode">Zen</div><div class="mode">Lens</div></div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint" style="background:var(--ink-primary);color:var(--surface-pure);border-color:var(--ink-primary);">⌘K</div><div class="user-avatar">PR</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Queue</span><span>11</span></div>
+        <div class="queue-item"><div class="queue-name">Lalit Industries</div><div class="queue-meta"><span class="case-id">CASE-7019</span></div></div>
+        <div class="queue-item active"><div class="queue-name">Shree Venkat Trading</div><div class="queue-meta"><span class="case-id">CASE-7102</span></div></div>
+        <div class="queue-item"><div class="queue-name">Naveen & Sons</div><div class="queue-meta"><span class="case-id">CASE-7103</span></div></div>
+      </aside>
+      <main class="canvas" style="position:relative;">
+        <header class="canvas-header" style="opacity:0.4;">
+          <div class="canvas-crumb">SME ONBOARDING · INDIA</div>
+          <h2 class="canvas-title">Shree Venkat Trading Pvt Ltd</h2>
+        </header>
+        <div class="panels" style="opacity:0.4;">
+          <div class="panel"><div class="panel-title">Entity Verification</div><div class="panel-content" style="height:60px;"></div></div>
+          <div class="panel"><div class="panel-title">Risk Score</div><div class="panel-content" style="height:60px;"></div></div>
+        </div>
+        <div class="fullscreen-overlay" style="background:rgb(10 10 10 / 0.4);">
+          <div class="cmd-palette">
+            <div class="cmd-input-row">
+              <div class="cmd-search-icon">⌕</div>
+              <input class="cmd-input" type="text" value="screening" placeholder="Find anything…"/>
+              <span class="cmd-hint">Esc</span>
+            </div>
+            <div class="cmd-list">
+              <div class="cmd-group">
+                <div class="cmd-group-label">Actions · 3</div>
+                <div class="cmd-item focused">
+                  <div class="cmd-item-icon">▷</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Re-run Screening on current case</span>
+                    <span class="cmd-item-sub">CASE-7102 · Shree Venkat Trading</span>
+                  </div>
+                  <span class="cmd-item-hint">↵</span>
+                </div>
+                <div class="cmd-item">
+                  <div class="cmd-item-icon">◯</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Open Screening Agent reasoning</span>
+                    <span class="cmd-item-sub">View full trace · counterfactual</span>
+                  </div>
+                  <span class="cmd-item-hint">⌘↵</span>
+                </div>
+                <div class="cmd-item">
+                  <div class="cmd-item-icon">↧</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Export Screening report</span>
+                    <span class="cmd-item-sub">PDF · current case</span>
+                  </div>
+                </div>
+              </div>
+              <div class="cmd-group">
+                <div class="cmd-group-label">Agents · 1</div>
+                <div class="cmd-item">
+                  <div class="agent-face screening" style="width:20px;height:20px;"><div class="eyes"><div class="eye" style="width:1.5px;height:1.5px;"></div><div class="eye" style="width:1.5px;height:1.5px;"></div></div></div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Screening Agent</span>
+                    <span class="cmd-item-sub">ComplyAdvantage · 1 active case</span>
+                  </div>
+                </div>
+              </div>
+              <div class="cmd-group">
+                <div class="cmd-group-label">Cases with recent screening activity · 2</div>
+                <div class="cmd-item">
+                  <div class="cmd-item-icon">■</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Shree Venkat Trading · 1 amber hit</span>
+                    <span class="cmd-item-sub">CASE-7102 · 11 minutes ago</span>
+                  </div>
+                </div>
+                <div class="cmd-item">
+                  <div class="cmd-item-icon">■</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Orion Metals · screening clean</span>
+                    <span class="cmd-item-sub">CASE-7097 · 41 minutes ago</span>
+                  </div>
+                </div>
+              </div>
+              <div class="cmd-group">
+                <div class="cmd-group-label">Help · 2</div>
+                <div class="cmd-item">
+                  <div class="cmd-item-icon">?</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Screening explainer docs</span>
+                    <span class="cmd-item-sub">How to read a reasoning trace</span>
+                  </div>
+                </div>
+                <div class="cmd-item">
+                  <div class="cmd-item-icon">⚙</div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">Screening vendor config · Admin</span>
+                    <span class="cmd-item-sub">Tenant Admin only</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="cmd-footer">
+              <span><span class="key">↑↓</span>navigate</span>
+              <span><span class="key">↵</span>open</span>
+              <span><span class="key">⌘↵</span>open in new panel</span>
+              <span><span class="key">Esc</span>close</span>
+            </div>
+          </div>
+        </div>
+      </main>
+      <aside class="copilot-pane" style="opacity:0.4;">
+        <div class="copilot-header">Agents</div>
+      </aside>
+    </div>
+    <footer class="bottom-ribbon">
+      <div>Command palette open</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V9 · Empty Queue ============ -->
+<section class="view-section" id="v9">
+  <div class="view-header">
+    <h2>09 — Empty Queue · Caught Up</h2>
+    <div class="view-tagline">No cases in queue · officer is caught up</div>
+    <div class="pitch">The empty state pattern at work. Queue Rail shows a quiet centered message. Canvas offers a clear next-action suggestion: select a case or press ⌘K to find a specific one. Agent Copilot Pane is in its idle state. No illustration, no humor, no apology — professional register, informative and directional.</div>
+    <div class="traits">
+      <span class="trait">Queue empty state</span>
+      <span class="trait">Canvas guidance text</span>
+      <span class="trait">Copilot idle</span>
+      <span class="trait">No illustrations</span>
+      <span class="trait">Mesh dots all idle</span>
+    </div>
+  </div>
+  <div class="cockpit">
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div class="brand-name">KYC Cockpit</div></div>
+      <div class="mode-switch"><div class="mode">Triage</div><div class="mode active">Investigation</div><div class="mode">Zen</div><div class="mode">Lens</div></div>
+      <div style="display:flex;gap:10px;align-items:center;"><div class="palette-hint">⌘K</div><div class="user-avatar">PR</div></div>
+    </header>
+    <div class="cockpit-body">
+      <aside class="queue-rail">
+        <div class="queue-header"><span>Queue</span><span>0</span></div>
+        <div class="queue-filter"><span class="qf active">Mine</span><span class="qf">Team</span><span class="qf">Cold</span></div>
+        <div class="empty-state">
+          <div class="empty-icon">◌</div>
+          <div class="empty-title">No cases in queue</div>
+          <div class="empty-sub">You're caught up</div>
+          <div class="empty-sub" style="margin-top:6px;"><span class="cmd-k">⌘K</span> to find specific cases</div>
+        </div>
+      </aside>
+      <main class="canvas">
+        <div class="canvas-empty">
+          <div class="empty-icon" style="width:48px;height:48px;font-size:22px;">◌</div>
+          <div class="ce-title">Select a case to begin</div>
+          <div class="ce-sub">Queue is empty · press <span style="font-family:var(--font-mono);background:var(--surface-warm);padding:2px 6px;border:1px solid var(--vein-soft);border-radius:3px;">⌘K</span> to find a specific case</div>
+        </div>
+      </main>
+      <aside class="copilot-pane">
+        <div class="copilot-header">Mesh · idle</div>
+        <div class="empty-state" style="padding:30px 10px;">
+          <div class="empty-icon" style="width:28px;height:28px;font-size:14px;">◌</div>
+          <div class="empty-sub">Open a case to see<br>the mesh at work</div>
+        </div>
+      </aside>
+    </div>
+    <footer class="bottom-ribbon">
+      <div class="ribbon-pulse"><span>Mesh:</span><span class="pulse-dot idle"></span><span class="pulse-dot idle"></span><span class="pulse-dot idle"></span><span class="pulse-dot idle"></span><span class="pulse-dot idle"></span></div>
+      <div>All agents idle</div>
+      <div style="margin-left:auto;font-family:var(--font-mono);">Priya Kumar · caught up</div>
+    </footer>
+  </div>
+</section>
+
+<!-- ============ V10 · Agent Face Matrix ============ -->
+<section class="view-section" id="v10">
+  <div class="view-header">
+    <h2>10 — Agent Face Matrix</h2>
+    <div class="view-tagline">8 agents × 5 states · the personality layer, exhaustively shown</div>
+    <div class="pitch">Reference poster for designers and engineers. Every agent face in every state, visible in one grid. This is the single design primitive that most distinguishes KYC Cockpit from every incumbent. The grid doubles as the implementation check — if an agent face doesn't render one of these states, the implementation is incomplete.</div>
+    <div class="traits">
+      <span class="trait">8 agents</span>
+      <span class="trait">5 states each</span>
+      <span class="trait">40 variants total</span>
+      <span class="trait">Design primitive reference</span>
+      <span class="trait">Implementation checklist</span>
+    </div>
+  </div>
+
+  <div class="matrix-container">
+    <div class="matrix-grid">
+      <div class="matrix-corner">Agent ↓ State →</div>
+      <div class="matrix-col-header">Idle</div>
+      <div class="matrix-col-header">Working</div>
+      <div class="matrix-col-header">Complete</div>
+      <div class="matrix-col-header">Blocked</div>
+      <div class="matrix-col-header">Needs input</div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-supervisor);"></div>Supervisor</div>
+      <div class="matrix-cell"><div class="agent-face supervisor"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face supervisor working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face supervisor complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face supervisor blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face supervisor needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-docintel);"></div>Doc Intelligence</div>
+      <div class="matrix-cell"><div class="agent-face docintel"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face docintel working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face docintel complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face docintel blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face docintel needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-entity);"></div>Entity Verify</div>
+      <div class="matrix-cell"><div class="agent-face entity"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face entity working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face entity complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face entity blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face entity needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-ubo);"></div>UBO Graph</div>
+      <div class="matrix-cell"><div class="agent-face ubo"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face ubo working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face ubo complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face ubo blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face ubo needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-screening);"></div>Screening</div>
+      <div class="matrix-cell"><div class="agent-face screening"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face screening working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face screening complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face screening blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face screening needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-risk);"></div>Risk Scoring</div>
+      <div class="matrix-cell"><div class="agent-face risk"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face risk working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face risk complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face risk blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face risk needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-writing);"></div>Writing</div>
+      <div class="matrix-cell"><div class="agent-face writing"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face writing working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face writing complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face writing blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face writing needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+
+      <div class="matrix-row-header"><div class="hue-chip" style="background:var(--ag-chat);"></div>Cockpit Chat</div>
+      <div class="matrix-cell"><div class="agent-face chat"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">idle</span></div>
+      <div class="matrix-cell"><div class="agent-face chat working"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">working</span></div>
+      <div class="matrix-cell"><div class="agent-face chat complete"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">complete</span></div>
+      <div class="matrix-cell"><div class="agent-face chat blocked"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">blocked</span></div>
+      <div class="matrix-cell"><div class="agent-face chat needs-input"><div class="eyes"><div class="eye"></div><div class="eye"></div></div></div><span class="matrix-state-label">needs input</span></div>
+    </div>
+
+    <div class="matrix-legend">
+      <div class="matrix-legend-item"><span class="ml-key">idle</span><span class="ml-desc">Static face · eyes visible · no motion · default at rest</span></div>
+      <div class="matrix-legend-item"><span class="ml-key">working</span><span class="ml-desc">Soft breath ring pulses at 1.8s cycle · agent is actively processing</span></div>
+      <div class="matrix-legend-item"><span class="ml-key">complete</span><span class="ml-desc">One-time glow animation at 400ms · agent finished its step</span></div>
+      <div class="matrix-legend-item"><span class="ml-key">blocked</span><span class="ml-desc">Fill desaturated · red ! badge bottom-right · vendor down or error</span></div>
+      <div class="matrix-legend-item"><span class="ml-key">needs-input</span><span class="ml-desc">Nudge animation · eyes turn toward officer · agent wants attention</span></div>
+    </div>
+
+    <div style="margin-top:20px;padding:16px;background:var(--surface-warm);border:1px solid var(--vein-soft);border-radius:8px;font-size:11px;color:var(--ink-secondary);line-height:1.6;">
+      <strong style="color:var(--ink-primary);">Implementation notes:</strong> All faces share the same SVG base component (<code style="font-family:var(--font-mono);background:var(--surface-sunken);padding:1px 5px;border-radius:3px;">AgentFace</code>). Agent identity is passed as a prop (<code style="font-family:var(--font-mono);background:var(--surface-sunken);padding:1px 5px;border-radius:3px;">agent: 'supervisor' | 'docintel' | ...</code>). State is passed as a second prop (<code style="font-family:var(--font-mono);background:var(--surface-sunken);padding:1px 5px;border-radius:3px;">state: 'idle' | 'working' | 'complete' | 'blocked' | 'needs-input'</code>). All animations respect <code style="font-family:var(--font-mono);background:var(--surface-sunken);padding:1px 5px;border-radius:3px;">prefers-reduced-motion</code>. <code style="font-family:var(--font-mono);background:var(--surface-sunken);padding:1px 5px;border-radius:3px;">aria-label</code> is auto-generated as "{Agent name} · {state description}".
+    </div>
+  </div>
+</section>
+
+<script>
+  const tabs = document.querySelectorAll('.tab');
+  const sections = document.querySelectorAll('.view-section');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.view;
+      tabs.forEach(t => t.classList.remove('active'));
+      sections.forEach(s => s.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById(target).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+</script>
+
+</body>
+</html>
