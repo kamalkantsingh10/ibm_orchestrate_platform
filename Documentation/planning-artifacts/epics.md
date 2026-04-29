@@ -25,6 +25,107 @@ This document provides the complete epic and story breakdown for **KYC Cockpit**
 
 **Sequencing principle:** *Start easy, progressively add complexity.* Foundations first, then the smallest end-to-end vertical slice (one agent, minimal UI, real auth + real ledger), then layered richness — more agents, more UX sophistication, more modes, audit/export, multi-role, hardening.
 
+## Demo Re-Scope (2026-04-29)
+
+**This document was re-scoped on 2026-04-29 for a local demo build.** Read this section first for the active scope. The bank-buyer-scoped sections below (Requirements Inventory, FR Coverage Map, Epic List, per-Epic detailed stories) remain as authored for posterity — they are NOT the active build target. The active build target is the demo-scope structure summarized here, with `Documentation/implementation-artifacts/sprint-status.yaml` as the operational source of truth.
+
+For the full impact analysis and recommended approach, see `Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md`.
+
+### Active scope summary
+
+**10 epics, 64 stories.** A 45% reduction from the bank-buyer scope (11 epics, 116 stories). Epic 11 cut entirely. Epics 1, 2, 3, 7, 9, 10 substantially gutted to remove enterprise infrastructure (OIDC, multi-tenant, HSM-backed cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest, DR, WCAG audit, performance budgets). Epics 4, 5, 6, 8 mostly preserved — they hold the agent showcase and UI fidelity moments that are the demo's purpose.
+
+### Active epics (demo scope)
+
+| # | Epic (renamed where applicable) | Stories | Demo role |
+|---|---|---:|---|
+| 1 | Foundations & Cockpit Shell | 5 | Monorepo, dev env, demo-scoped CI, ≤60min fresh-clone, cockpit shell with user-switcher (3 hardcoded roles) |
+| 2 | Case Ingest & Lifecycle | 4 | Case schema + state machine, GET case, queue rail (basic ordering), fixture loader (3 seeded cases) |
+| 3 | First Agent & Audit Log | 7 | Agent action decorator, Pydantic contracts, Document Intelligence agent (LLM-based extract), Case Supervisor intake fan-out, documents panel with provenance, ConfidencePill component, JSON append-only log |
+| 4 | Triage Mode & Live Mesh Visibility | 9 | Risk×SLA×continuity ordering, keyboard triage (j/k/x/d/Enter), 8 illustrated agent-face SVGs, 3 Framer Motion utilities, AgentCopilotPane with live activity feed, single-worker SSE, mode switcher (Investigation), status pills |
+| 5 | Entity & UBO Investigation | 9 | Entity Verification agent (mock MCA), MCA lookup tool, UBO Graph agent, force-directed UBOCanvas, drag-correct with learning-event, Risk Scoring agent, RiskScoreBar with hover decomposition, auto-recalc, UBO + Risk panels |
+| 6 | Screening, Reasoning Traces & Cockpit Chat | 8 | Mock screening adapter, Screening agent, ScreeningExplainer 3-column, ReasoningTrace contract + endpoint + slide-out, Cockpit Chat agent (mesh-as-tools), conversational UI |
+| 7 | Decision Authoring | 9 | DecisionZone with Tiptap, tonal typographic shift, Writing Agent v1 (rationale draft), 120s undo timer (in-memory), UndoPill with countdown ring, seal animation, POST /decision endpoint, evidence shelf basic, decision outcomes |
+| 8 | Zen Mode & EDD Memo Drafting | 7 | Cmd+4 mode switch, Zen visual treatment, Writing Agent v2 (EDD memo drafter), citation-by-ledger-ID enforcement, narrative rendering with structured sections, evidence reference list, Zen exit/commit |
+| 9 | Audit Trail, Regulator Lens & Export | 3 | AuditTrailTimeline component, RegulatorLensFrame read-only mode, PDF export bundle assembly |
+| 10 | Multi-Role (Lead Approvals) | 3 | Team Lead approval queue route, approve-with-conditions structured state, lead approval log entry (no crypto signature) |
+| **Total** | | **64** | |
+
+**Cut entirely:** Epic 11 — Pilot Hardening (11 stories: threat model, pentest, DR rehearsal, WCAG audit, performance budgets, calibration study, India jurisdiction lockdown, tenant onboarding test, mock internal audit, per-tenant feature flags, observability dashboards).
+
+### Stories cut (relative to bank-buyer scope)
+
+**Epic 1:** 1-4 ADR discipline, 1-5 Postgres tenant-schema isolation, 1-6 OIDC auth, 1-7 deny-by-default RBAC, 1-8 tenant scoping middleware, 1-9 session inactivity timeout, 1-10 empty cockpit shell with auth-protected routes (replaced by user-switcher variant), 1-11 i18n scaffolding.
+
+**Epic 2:** 2-2 POST /cases ingestion endpoint, 2-3 idempotent case creation, 2-4 document upload via presigned URL, 2-7 webhook subscription, 2-8 outbound webhook dispatch with HMAC, 2-9 at-least-once webhook retry, 2-10 API rate limiting middleware, 2-11 OpenAPI export and Scalar docs serving.
+
+**Epic 3:** 3-2 KeyVault adapter protocol with Vault Transit dev impl, 3-3 KeyVault HPCS implementation and conformance pair, 3-4 Ed25519 hash-chain primitive in ledger service, 3-7 DocStore adapter with multi-cloud impls and conformance, 3-8 DocAI adapter with mock and IBM Document AI impls, 3-11 50-doc corpus benchmark for Document Intelligence, 3-14 document SHA-256 hashing and immutability verification.
+
+**Epic 4:** 4-7 Redis pub/sub registry for multi-worker SSE coordination, 4-10 in-app notifications system, 4-11 keyboard shortcut help overlay. *(Command palette 4-9 was a candidate cut at item #8 of the ranked cut list but is kept.)*
+
+**Epic 5:** 5-3 GST verify tool (MCA alone proves multi-tool agent pattern).
+
+**Epic 6:** 6-2 ComplyAdvantage screening adapter (mock-only), 6-10 screening procurement runbook and sandbox onboarding.
+
+**Epic 7:** 7-1 officer Ed25519 keypair generation at first login, 7-2 encrypt and store private key with tenant master key, 7-3 client-side WebCrypto signing utility, 7-4 server-side Ed25519 verification, 7-12 officer-signed ledger entry, 7-13 edit-rate metric tracking. *(7-14 basic evidence shelf for Decision Zone was a candidate cut at item #9 of the ranked cut list but is kept.)*
+
+**Epic 8:** *No cuts.* (8-5 EvidenceShelf with attachment ingest, 8-6 evidence SHA-256, 8-7 EDD outcome auto-enqueue were candidate cuts at items #10–12 of the ranked cut list but are kept.)
+
+**Epic 9:** 9-2 case timeline endpoint with role-scoped permissions (UI-side gating instead), 9-5 JSON export bundle assembly with hash chain, 9-6 offline verifier CLI, 9-7 verifier wheel packaging and distribution, 9-8 LedgerViewer with hash-chain visualization.
+
+**Epic 10:** 10-4 CCO portfolio dashboard route, 10-5 cohort export CSV, 10-6 break-glass admin runbook, 10-7 tenant-config CLI runbook.
+
+**Epic 11:** All 11 stories.
+
+### Stories added (new, demo-specific)
+
+**Epic 1:**
+- **1-4 Cockpit shell with user-switcher (3 hardcoded roles)** — Replaces deferred OIDC + RBAC + tenant scoping. A persistent dropdown in the cockpit chrome lets the demo presenter switch among Analyst (Kamal), Team Lead, and Regulator personas. Role determines which routes/actions are visible; no real auth, no tenant gating.
+- **1-5 Fresh-clone to running demo in ≤60 minutes** — README polish with a single-command bootstrap path, a setup verification script (`make verify` or equivalent) that checks SQLite is initialized, fixtures are seeded, agents register with ADK, and the cockpit-ui builds; a "Reset demo" command that wipes mutable state back to seeded fixtures.
+
+**Epic 2:**
+- **2-4 Fixture case loader with three seeded cases** — Loads three canonical demo cases from JSON files into SQLite at startup or via reset: (1) clean approval (low risk, simple UBO), (2) hairy shell-company UBO (multi-layer ownership, nominee flags), (3) screening hit (sanctions match with name-similarity ambiguity). Used by every agent showcase and by all three role demos.
+
+### Stories simplified (kept but scope reduced)
+
+- **1-3 CI/CD skeleton (demo-scoped)** — *Already proactively trimmed by the implementing developer on 2026-04-29.* OIDC-federated cloud creds, container builds, weekly Snyk all removed; basic GitHub Actions CI runs `make lint` + `make test` + `gitleaks` scan, Dependabot replaces Snyk for the demo. Status remains `review`. The original Story 1.3 narrative below preserves the bank-buyer scope for revival.
+- **3-1 Cryptographic ledger schema with insert-only role** → **JSON append-only ledger schema.** Same domain (every agent action is recorded), same Pydantic contracts, same insert-only semantics — implemented as a JSON file with append-only writes through a single ledger writer module, not a Postgres `ledger` schema with DB triggers and HSM-backed Ed25519 hash chain.
+- **3-9 Document Intelligence agent** — Real ADK agent with real Pydantic contracts. The "Document AI" backend is a single LLM call against PDF-extracted text (using `pypdf` or similar), not the IBM Document AI adapter.
+- **5-1 Entity Verification agent** — Real ADK agent with real Pydantic contracts. The MCA tool is a mock returning fixture data shaped like real MCA responses.
+- **6-1 Screening adapter protocol with mock impl** — Mock-only; no second-impl conformance pair.
+- **7-8 120-second undo timer** — In-memory implementation, no Redis fail-closed policy.
+- **7-11 POST /decision endpoint** — No client-side WebCrypto signature verification on the server side; user identity from session, decision logged with user ID.
+- **9-1 AuditTrailTimeline component** — Renders events from the JSON log; same visual design as the bank-buyer scope, simpler data source.
+- **9-3 Regulator Lens read-only mode** — Activated by user-switcher to "Regulator" role; reframes the cockpit into audit-styled read-only view; same visual treatment as bank-buyer scope.
+- **10-3 Lead approval ledger entry** — Log entry without Ed25519 signature; user identity from session.
+
+### Tech stack changes (from architecture's Demo Scope Addendum)
+
+For full detail, see `architecture.md` § Demo Scope Addendum.
+
+- **Persistence:** SQLite (single file), not Postgres + asyncpg
+- **Auth:** User-switcher dropdown (3 hardcoded roles), not OIDC/SAML SSO
+- **Caching/Pub-Sub:** In-memory single-worker, no Redis
+- **Background work:** FastAPI background tasks, not Celery/Arq/Temporal
+- **Object storage:** Local filesystem `./fixtures/uploads/`, not S3
+- **HSM/signing:** None
+- **Audit ledger:** JSON append-only log, not hash-chained or signed
+- **Vendor adapters:** Mock-only, no second reference impl
+- **Document AI:** Single LLM call against extracted text, no DocAI integration
+- **Observability:** Structured stdout logs, no OpenTelemetry/Orchestrate trace export
+
+**Preserved (UI fidelity is the load-bearing demo constraint):** Polyglot monorepo (Poetry + pnpm), React 19 + Vite + TS strict + Tailwind 4 + shadcn/ui + Radix + Framer Motion + react-flow + Tiptap, all ConfidencePill / ProvenanceIndicator / ReasoningTraceSlideOut / 8 agent-face SVGs / 3 motion flavors / UBOCanvas / Tiptap DecisionZone / seal animation / UndoPill / Zen visual treatment / RegulatorLensFrame visual primitives.
+
+### What about the per-Epic detailed Story sections (1.1, 1.2, 1.3, 1.4 ... 11.X) below?
+
+The detailed Story sections later in this document (with full Given/When/Then acceptance criteria) remain as the **bank-buyer-scoped reference**. They are the source for revival if the bank-buyer scope is re-activated. For the demo build:
+
+- Stories whose IDs appear in the active scope summary above are **active** — implement them per their existing acceptance criteria, modified by the simplifications listed above
+- Stories whose IDs appear in the "Stories cut" lists are **inactive** — do not implement; their files in `Documentation/implementation-artifacts/` are archived to `archive/`
+- New stories (1-4 cockpit shell with user-switcher, 1-5 fresh-clone, 2-4 fixture case loader) need story files created via `bmad-create-story` before implementation
+
+---
+
 ## Requirements Inventory
 
 ### Functional Requirements
@@ -477,7 +578,7 @@ A KYC Analyst can log in via the bank's IdP, land on a cockpit shell scoped to t
 
 ### Story 1.1: Bootstrap the polyglot monorepo from the canonical scaffold
 
-As a developer joining the project,
+  As a developer joining the project,
 I want the polyglot monorepo (Vite + ADK + FastAPI + Poetry + pnpm) scaffolded per the architecture decision document,
 So that every subsequent story has a place to live and the codebase reads cleanly as a reference implementation.
 

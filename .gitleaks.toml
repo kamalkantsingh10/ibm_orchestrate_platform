@@ -1,0 +1,28 @@
+# gitleaks configuration — Story 1.3.
+# Extends the upstream default ruleset; this file only declares allowlist
+# entries for project-specific placeholders that look like secrets but aren't.
+title = "ibm_orchestrate_platform gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Project allowlist — placeholders, fixtures, and committed documentation."
+
+paths = [
+  '''\.env\.example$''',
+  '''^Documentation/''',
+  '''^docs/''',
+  '''pnpm-lock\.yaml$''',
+  '''poetry\.lock$''',
+  '''^\.gitleaks\.toml$''',
+]
+
+regexes = [
+  # Vault dev root token used by docker-compose; never a real secret.
+  '''dev-root-token''',
+  # Placeholder session secret in .env.example.
+  '''dev-session-secret-change-me-32bytes!!''',
+  # LocalStack default test credentials.
+  '''AWS_(ACCESS_KEY_ID|SECRET_ACCESS_KEY)\s*=\s*test\b''',
+]

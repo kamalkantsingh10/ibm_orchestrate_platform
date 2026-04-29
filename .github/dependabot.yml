@@ -1,0 +1,29 @@
+# Dependency update PRs — replaces the dropped Snyk security-scan workflow
+# at the trimmed Story 1.3 scope. Dependabot is GitHub-native, free, and
+# requires no token. Pair with .gitleaks.toml and the pre-commit hooks for
+# the demo's security baseline.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: pip
+    directories:
+      - /
+      - /apps/cockpit-api
+      - /apps/agents
+      - /packages/contracts
+      - /tools/verifier
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: npm
+    directory: /apps/cockpit-ui
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

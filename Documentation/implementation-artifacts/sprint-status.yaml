@@ -1,9 +1,19 @@
 # generated: 2026-04-27
-# last_updated: 2026-04-27
+# last_updated: 2026-04-29 (re-scoped to demo)
 # project: ibm_orchestrate_platform
 # project_key: NOKEY
 # tracking_system: file-system
 # story_location: Documentation/implementation-artifacts
+# scope: DEMO (re-scoped 2026-04-29 — see Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md)
+#
+# Demo scope: 10 epics, 64 stories. Epic 11 cut entirely. Epics 1, 2, 3, 7, 9, 10
+# substantially gutted to remove enterprise infrastructure (OIDC, multi-tenant,
+# HSM-backed cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest,
+# DR rehearsal, WCAG audit, performance budgets). UI fidelity preserved across
+# all retained stories.
+#
+# Cut story files for Epic 1 archived to Documentation/implementation-artifacts/archive/
+# (preserves history for revival of bank-buyer scope).
 
 # STATUS DEFINITIONS:
 # ==================
@@ -35,69 +45,51 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-27
-last_updated: 2026-04-27
+last_updated: 2026-04-29
 project: ibm_orchestrate_platform
 project_key: NOKEY
 tracking_system: file-system
 story_location: Documentation/implementation-artifacts
+scope: DEMO
+scope_change_proposal: Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md
 
 development_status:
   # ────────────────────────────────────────────────────────────────────
-  # Epic 1 — Foundations & First Sign-In
+  # Epic 1 — Foundations & Cockpit Shell (5 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-1: backlog
-  1-1-bootstrap-the-polyglot-monorepo-from-the-canonical-scaffold: backlog
-  1-2-one-command-local-development-environment: backlog
-  1-3-cicd-skeleton-with-oidc-federated-cloud-creds: backlog
-  1-4-adr-discipline-and-architecture-documentation-skeleton: backlog
-  1-5-postgres-tenant-schema-isolation-primitives: backlog
-  1-6-oidc-authentication-with-cookie-session: backlog
-  1-7-deny-by-default-rbac-dependency: backlog
-  1-8-tenant-scoping-middleware: backlog
-  1-9-session-inactivity-timeout: backlog
-  1-10-empty-cockpit-shell-with-auth-protected-routes: backlog
-  1-11-i18n-scaffolding-and-locale-aware-formatting: backlog
+  epic-1: in-progress
+  1-1-bootstrap-the-polyglot-monorepo-from-the-canonical-scaffold: review
+  1-2-one-command-local-development-environment: review
+  1-3-cicd-skeleton-with-oidc-federated-cloud-creds: review  # already demo-scoped by dev 2026-04-29; OIDC federated cloud creds removed
+  1-4-cockpit-shell-with-user-switcher-three-hardcoded-roles: backlog  # NEW (replaces 1-6 OIDC + 1-10 auth-protected shell)
+  1-5-fresh-clone-to-running-demo-in-sixty-minutes: backlog            # NEW (relaxes NFR-RI5 from 30min to 60min as explicit AC)
   epic-1-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 2 — Case Ingest & Lifecycle
+  # Epic 2 — Case Ingest & Lifecycle (4 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-2: backlog
   2-1-case-schema-and-state-machine: backlog
-  2-2-post-cases-ingestion-endpoint: backlog
-  2-3-idempotent-case-creation: backlog
-  2-4-document-upload-via-presigned-url-flow: backlog
-  2-5-get-case-retrieval-api-consumer: backlog
-  2-6-case-appears-in-queue-rail-basic-ordering: backlog
-  2-7-webhook-subscription-configuration-per-tenant: backlog
-  2-8-outbound-webhook-dispatch-with-hmac-signing: backlog
-  2-9-at-least-once-webhook-retry: backlog
-  2-10-api-rate-limiting-middleware: backlog
-  2-11-openapi-export-and-scalar-docs-serving: backlog
+  2-2-get-case-retrieval-api-consumer: backlog
+  2-3-case-appears-in-queue-rail-basic-ordering: backlog
+  2-4-fixture-case-loader-with-three-seeded-cases: backlog  # NEW (replaces ingestion API + presigned upload)
   epic-2-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 3 — First Agent & Cryptographic Audit Ledger
+  # Epic 3 — First Agent & Audit Log (7 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-3: backlog
-  3-1-cryptographic-ledger-schema-with-insert-only-role: backlog
-  3-2-keyvault-adapter-protocol-with-vault-transit-dev-impl: backlog
-  3-3-keyvault-hpcs-implementation-and-conformance-pair: backlog
-  3-4-ed25519-hash-chain-primitive-in-ledger-service: backlog
-  3-5-agent-action-decorator: backlog
-  3-6-pydantic-contracts-for-ledger-provenance-confidence: backlog
-  3-7-docstore-adapter-with-multi-cloud-impls-and-conformance: backlog
-  3-8-docai-adapter-with-mock-and-ibm-document-ai-impls: backlog
-  3-9-document-intelligence-agent: backlog
-  3-10-case-supervisor-intake-fan-out: backlog
-  3-11-50-doc-corpus-benchmark-for-document-intelligence: backlog
-  3-12-documents-panel-on-case-canvas-with-provenance-pills: backlog
-  3-13-confidence-pill-component: backlog
-  3-14-document-sha-256-hashing-and-immutability-verification: backlog
+  3-1-append-only-ledger-schema-with-insert-only-writer: backlog        # simplified: JSON file, not Postgres + hash chain
+  3-2-agent-action-decorator: backlog
+  3-3-pydantic-contracts-for-ledger-provenance-confidence: backlog
+  3-4-document-intelligence-agent-llm-extract: backlog                  # simplified: LLM extract, no DocAI integration
+  3-5-case-supervisor-intake-fan-out: backlog
+  3-6-documents-panel-on-case-canvas-with-provenance-pills: backlog
+  3-7-confidence-pill-component: backlog
   epic-3-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 4 — Triage Mode & Live Mesh Visibility
+  # Epic 4 — Triage Mode & Live Mesh Visibility (9 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-4: backlog
   4-1-risk-sla-continuity-ordering-for-queue-rail: backlog
@@ -105,121 +97,89 @@ development_status:
   4-3-eight-illustrated-agent-face-svgs-with-state-machine: backlog
   4-4-three-motion-flavors-as-framer-motion-utilities: backlog
   4-5-agent-copilot-pane-with-live-activity-feed: backlog
-  4-6-sse-stream-endpoint: backlog
-  4-7-redis-pub-sub-registry-for-multi-worker-sse-coordination: backlog
-  4-8-mode-switcher-investigation-only: backlog
-  4-9-command-palette: backlog
-  4-10-in-app-notifications-system: backlog
-  4-11-keyboard-shortcut-help-overlay: backlog
-  4-12-status-pills-for-agent-states: backlog
+  4-6-sse-stream-endpoint-single-worker: backlog                        # no Redis pub/sub
+  4-7-mode-switcher-investigation-only: backlog
+  4-8-command-palette: backlog                                          # KEPT (was candidate cut #8)
+  4-9-status-pills-for-agent-states: backlog
   epic-4-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 5 — Entity & UBO Investigation
+  # Epic 5 — Entity & UBO Investigation (9 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-5: backlog
   5-1-entity-verification-agent: backlog
-  5-2-mca-lookup-tool: backlog
-  5-3-gst-verify-tool: backlog
-  5-4-ubo-graph-agent-basic: backlog
-  5-5-ubo-canvas-component: backlog
-  5-6-drag-correct-interaction-with-learning-event-ledger-entry: backlog
-  5-7-risk-scoring-agent: backlog
-  5-8-risk-score-stacked-bar-with-hover-decomposition: backlog
-  5-9-auto-recalc-on-officer-correction: backlog
-  5-10-ubo-and-risk-panels-on-case-canvas: backlog
+  5-2-mca-lookup-tool-mock: backlog
+  5-3-ubo-graph-agent-basic: backlog
+  5-4-ubo-canvas-component: backlog
+  5-5-drag-correct-interaction-with-learning-event-ledger-entry: backlog
+  5-6-risk-scoring-agent: backlog
+  5-7-risk-score-stacked-bar-with-hover-decomposition: backlog
+  5-8-auto-recalc-on-officer-correction: backlog                        # KEPT (was candidate cut #13)
+  5-9-ubo-and-risk-panels-on-case-canvas: backlog
   epic-5-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 6 — Screening, Reasoning Traces & Conversational Mesh
+  # Epic 6 — Screening, Reasoning Traces & Cockpit Chat (8 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-6: backlog
-  6-1-screening-adapter-protocol-with-mock-impl: backlog
-  6-2-complyadvantage-screening-adapter: backlog
-  6-3-screening-agent: backlog
-  6-4-screening-explainer-3-column-component: backlog
-  6-5-reasoning-trace-contract-4-section-schema-enforcement: backlog
-  6-6-get-reasoning-trace-endpoint: backlog
-  6-7-reasoning-trace-slide-out-component: backlog
-  6-8-cockpit-chat-agent-with-mesh-as-tools: backlog
-  6-9-cockpit-chat-conversational-ui-in-agent-copilot-pane: backlog
-  6-10-screening-procurement-runbook-and-sandbox-onboarding: backlog
+  6-1-screening-adapter-protocol-with-mock-impl: backlog                # mock-only, no second-impl conformance
+  6-2-screening-agent: backlog
+  6-3-screening-explainer-3-column-component: backlog
+  6-4-reasoning-trace-contract-4-section-schema-enforcement: backlog
+  6-5-get-reasoning-trace-endpoint: backlog
+  6-6-reasoning-trace-slide-out-component: backlog
+  6-7-cockpit-chat-agent-with-mesh-as-tools: backlog
+  6-8-cockpit-chat-conversational-ui-in-agent-copilot-pane: backlog
   epic-6-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 7 — Decision Authoring & Officer Signing
+  # Epic 7 — Decision Authoring (9 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-7: backlog
-  7-1-officer-ed25519-keypair-generation-at-first-login: backlog
-  7-2-encrypt-and-store-private-key-with-tenant-master-key: backlog
-  7-3-client-side-webcrypto-signing-utility: backlog
-  7-4-server-side-ed25519-verification: backlog
-  7-5-decision-zone-component-with-tiptap-editor: backlog
-  7-6-tonal-typographic-shift-on-decision-zone-focus: backlog
-  7-7-writing-agent-v1-rationale-draft: backlog
-  7-8-120-second-undo-timer-with-fail-closed-redis-policy: backlog
-  7-9-undopill-with-countdown-ring-and-reason-capture-modal: backlog
-  7-10-seal-animation-on-commit: backlog
-  7-11-post-decision-endpoint-with-signature-verification: backlog
-  7-12-officer-signed-ledger-entry: backlog
-  7-13-edit-rate-metric-tracking: backlog
-  7-14-basic-evidence-shelf-read-only-for-context: backlog
-  7-15-decision-outcomes: backlog
+  7-1-decision-zone-component-with-tiptap-editor: backlog
+  7-2-tonal-typographic-shift-on-decision-zone-focus: backlog
+  7-3-writing-agent-v1-rationale-draft: backlog
+  7-4-120-second-undo-timer-in-memory: backlog                          # in-memory, no Redis fail-closed; KEPT (was candidate cut #14)
+  7-5-undopill-with-countdown-ring-and-reason-capture-modal: backlog    # KEPT (was candidate cut #15)
+  7-6-seal-animation-on-commit: backlog
+  7-7-post-decision-endpoint-no-signature-verify: backlog               # simplified: no client-side WebCrypto sig verify
+  7-8-basic-evidence-shelf-read-only-for-context: backlog               # KEPT (was candidate cut #9)
+  7-9-decision-outcomes: backlog
   epic-7-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 8 — SAR/EDD Zen Mode & Narrative Drafting
+  # Epic 8 — Zen Mode & EDD Memo Drafting (7 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-8: backlog
   8-1-cmd-4-mode-switch-to-zen: backlog
   8-2-zen-mode-visual-treatment: backlog
   8-3-writing-agent-v2-edd-memo-drafter: backlog
   8-4-citation-by-ledger-id-enforcement-in-writing-output: backlog
-  8-5-evidenceshelf-with-attachment-ingest-ui: backlog
-  8-6-evidence-attachment-with-sha-256-hash: backlog
-  8-7-edd-outcome-auto-enqueue-for-lead-approval: backlog
+  8-5-evidenceshelf-with-attachment-ingest-ui: backlog                  # KEPT (was candidate cut #10)
+  8-6-evidence-attachment-with-sha-256-hash: backlog                    # KEPT (was candidate cut #11)
+  8-7-edd-outcome-auto-enqueue-for-lead-approval: backlog               # KEPT (was candidate cut #12)
   epic-8-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 9 — Audit Trail, Regulator Lens & Offline Verifier
+  # Epic 9 — Audit Trail, Regulator Lens & Export (3 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-9: backlog
-  9-1-audittrailtimeline-component: backlog
-  9-2-case-timeline-endpoint-with-role-scoped-permissions: backlog
-  9-3-regulator-lens-read-only-mode: backlog
-  9-4-pdf-export-bundle-assembly: backlog
-  9-5-json-export-bundle-assembly-with-hash-chain: backlog
-  9-6-offline-verifier-cli: backlog
-  9-7-verifier-wheel-packaging-and-distribution: backlog
-  9-8-ledgerviewer-with-hash-chain-visualization: backlog
+  9-1-audittrailtimeline-component: backlog                             # renders from JSON log
+  9-2-regulator-lens-read-only-mode: backlog                            # activated by user-switcher to "Regulator" role
+  9-3-pdf-export-bundle-assembly: backlog
   epic-9-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 10 — Multi-Role Workflows (Approvals & Portfolio)
+  # Epic 10 — Multi-Role (Lead Approvals) (3 stories)
   # ────────────────────────────────────────────────────────────────────
   epic-10: backlog
   10-1-team-lead-approval-queue-route: backlog
   10-2-approve-with-conditions-structured-state-in-ledger: backlog
-  10-3-lead-approval-ledger-entry-with-signature: backlog
-  10-4-cco-portfolio-dashboard-route: backlog
-  10-5-cohort-export-csv: backlog
-  10-6-break-glass-admin-runbook: backlog
-  10-7-tenant-config-cli-runbook: backlog
+  10-3-lead-approval-log-entry-no-signature: backlog                    # log entry, no Ed25519 signature
   epic-10-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 11 — Pilot Hardening
+  # Epic 11 — Pilot Hardening — REMOVED FROM DEMO SCOPE
   # ────────────────────────────────────────────────────────────────────
-  epic-11: backlog
-  11-1-threat-model-authoring: backlog
-  11-2-external-pentest-engagement-and-remediation: backlog
-  11-3-dr-rehearsal-with-metrics-capture: backlog
-  11-4-wcag-2-2-aa-third-party-audit: backlog
-  11-5-performance-budget-verification-across-canonical-journeys: backlog
-  11-6-confidence-calibration-study: backlog
-  11-7-india-jurisdiction-pack-lockdown: backlog
-  11-8-tenant-onboarding-offboarding-runbook-full-test: backlog
-  11-9-mock-internal-audit-pass-with-zero-remediation: backlog
-  11-10-feature-flags-per-tenant: backlog
-  11-11-observability-dashboards: backlog
-  epic-11-retrospective: optional
+  # All Epic 11 stories deferred indefinitely. Bank-buyer-scoped detail
+  # preserved in Documentation/planning-artifacts/epics.md for revival.

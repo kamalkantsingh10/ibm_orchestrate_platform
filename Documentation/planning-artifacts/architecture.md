@@ -119,6 +119,64 @@ Per the product brief / distillate, six decisions arrive unresolved:
 
 These will be revisited as the workflow progresses; some will be settled in upcoming steps, others may surface in the technology-stack and component design steps.
 
+## Demo Scope Addendum (2026-04-29)
+
+**This project's deliverable has been re-scoped to a Path B (IBM watsonx Orchestrate + ADK reference implementation) local demo.** The bank-buyer audience and its commercial roadmap are deferred indefinitely. The original architecture sections in this document remain valid for the bank-buyer scope and can be revived if that path resumes.
+
+For the full impact analysis, see `Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md`.
+
+### Stack changes for demo
+
+| Layer | Bank-buyer architecture | Demo architecture |
+|---|---|---|
+| Persistence | Postgres + asyncpg + tenant schema isolation | **SQLite** (single file). SQLAlchemy 2.0 + Alembic stay. |
+| Auth | SAML 2.0 / OIDC SSO, deny-by-default RBAC, tenant scoping middleware | **User-switcher dropdown** with 3 hardcoded roles (Analyst / Team Lead / Regulator). UI-side role gating. |
+| Caching / Pub-Sub | Redis (pub/sub for SSE coordination, multi-worker) | **In-memory state, single worker.** No Redis. |
+| Background work | Celery / Arq / Temporal | **FastAPI background tasks.** |
+| Object storage | S3-compatible adapter with second reference impl | **Local filesystem** `./fixtures/uploads/`. No adapter abstraction. |
+| HSM / signing | HSM-backed Ed25519 (Vault Transit + IBM HPCS conformance pair) | **None.** Audit log is a JSON append-only file. |
+| Audit ledger | Append-only, cryptographically hash-chained, per-action signed, offline-verifiable | **JSON append-only log.** Not hash-chained, not signed. Visualizes as a chain in the UI for demo purposes. |
+| Vendor adapters (screening, MCA, GST, DocAI) | Protocol + production impl + second reference impl + conformance suite | **Mock-only.** Pydantic contracts kept; second adapter and conformance suite dropped. |
+| Document AI | IBM Document AI / Watson Discovery / custom (precision ≥ 95% NFR-T5) | **Single LLM call against extracted text.** No DocAI integration. |
+| Observability | OpenTelemetry + Orchestrate trace export, per-tenant partitioning, P1 alerts | **Structured stdout logs.** No OTel, no Orchestrate trace export, no alerts. |
+| Deployment topology | Multi-service, multi-cloud, HSM, S3, Postgres, Redis | **Single FastAPI process + Vite dev server + SQLite + filesystem.** |
+
+### Cross-cutting concerns demoted
+
+- **Tenant scoping** — single-tenant; no `tenant_id` enforcement at any layer
+- **Provenance signing pipeline** — provenance metadata kept on every datum (the visual `ProvenancedField` story is preserved); cryptographic signing dropped
+- **Pluggability via conformance suites** — dropped; one mock adapter per integration
+- **Real-time tenant-partitioned streaming** — replaced with single-worker SSE
+- **LLM PII minimization** — deferred (synthetic fixture data only; no real PII)
+- **Keyboard + screen-reader concurrency** — keyboard kept (essential for the demo's "feels professional" perception); screen-reader concurrency aspirational, not audited
+- **Per-tenant observability partitioning** — N/A (single-tenant)
+
+### What stays (preserves the demo's value proposition)
+
+- **Polyglot monorepo** (Poetry + pnpm) — preserved per user decision; supports the "professional repo" perception
+- **Pydantic contracts** on every agent and tool boundary — critical to NFR-RI1 ADK pattern showcase
+- **NFR-RI1 ADK pattern coverage** — supervisor/collaborator, agent-as-tool, Pydantic-contracted tools, HITL approval, conversational-with-mesh-as-tools, Orchestrate-trace audit (last one simplified to JSON log writes from agent decorator)
+- **Frontend stack** — React 19 + Vite 7 + TypeScript strict + Tailwind 4 + shadcn/ui + Radix + Framer Motion + react-flow + Lucide + Tiptap. **Streamlit explicitly re-rejected** during re-scope discussion — UI fidelity to mockup is a load-bearing constraint that Streamlit cannot satisfy.
+- **≤60 min fresh-clone-to-running-demo** — relaxed from NFR-RI5's ≤30 min, made an explicit Epic 1 acceptance criterion
+- **LLM prompts in Jinja templates with golden inputs** (NFR-RI7) — kept (low cost, professional)
+
+### What's deferred indefinitely
+
+- Pre-pilot pentest, DR rehearsal with metrics capture, WCAG 2.2 AA third-party audit, performance budget verification across canonical journeys, confidence calibration study, India jurisdiction-pack lockdown, tenant onboarding/offboarding runbook, mock internal audit pass, per-tenant feature flags, observability dashboards, ADR discipline (optional — can revive if Path B docs needed), 80% test coverage gate (aspirational; not enforced)
+
+### Resolved open architectural decisions
+
+The PRD and original architecture left six decisions open. The demo re-scope resolves all of them:
+
+1. **Screening vendor selection** → **Mock-only.** No live vendor.
+2. **Document AI stack** → **LLM-based extraction.** No DocAI integration.
+3. **HITL UX model** → **Blocking inside Decision Zone.** No async notification flow.
+4. **Jurisdictional scope** → **India narrative only.** No pluggable proof.
+5. **Agent memory model** → **Shared case-state, stateless-functional agents.**
+6. **Frontend choice** → **Confirmed React + FastAPI** (Streamlit re-evaluated and re-rejected for UI fidelity reasons during re-scope discussion).
+
+---
+
 ## Starter Template Evaluation
 
 ### Primary Technology Domain

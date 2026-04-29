@@ -1,0 +1,13 @@
+node_modules
+dist
+build
+coverage
+.vite
+pnpm-lock.yaml
+poetry.lock
+*.md
+Documentation
+docs
+_bmad
+.claude
+infra/compose/postgres.init.sql

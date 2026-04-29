@@ -1,0 +1,82 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Local dev infra for the KYC Cockpit.
+#
+# Brings up the four shared infra services. The fifth dev-time component, the
+# IBM watsonx Orchestrate ADK Developer Edition, is intentionally NOT a peer
+# service here: the ADK CLI (`orchestrate server start`) provisions its own
+# docker stack (see `orchestrate server eject`). Running it as a compose peer
+# would race the CLI's container management. Use `make adk-up` to start it.
+#
+# Storage volumes are named (not bind-mounted) so `docker compose down`
+# preserves data and `docker compose down -v` (or `make clean-volumes`)
+# resets it.
+# ──────────────────────────────────────────────────────────────────────────────
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: cockpit-postgres
+    environment:
+      POSTGRES_USER: cockpit
+      POSTGRES_PASSWORD: cockpit
+      POSTGRES_DB: cockpit
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/compose/postgres.init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cockpit -d cockpit"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    container_name: cockpit-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: cockpit-localstack
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+    ports:
+      - "4566:4566"
+    volumes:
+      - localstack_data:/var/lib/localstack
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  vault:
+    image: hashicorp/vault:latest
+    container_name: cockpit-vault
+    cap_add:
+      - IPC_LOCK
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: dev-root-token
+      VAULT_DEV_LISTEN_ADDRESS: 0.0.0.0:8200
+      VAULT_ADDR: http://0.0.0.0:8200
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD-SHELL", "VAULT_ADDR=http://0.0.0.0:8200 vault status >/dev/null 2>&1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+volumes:
+  postgres_data:
+  localstack_data:

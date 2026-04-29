@@ -76,6 +76,50 @@ Every downstream design and architecture decision is filtered through these seve
 
 These principles thread through User Journeys, Functional Requirements, Non-Functional Requirements, and the UX Design work that follows this PRD.
 
+## Demo Re-Scope Note (2026-04-29)
+
+**This PRD has been re-scoped for a local demo build.** The sections that follow remain as-authored for posterity and for future revival of the bank-buyer scope. This addendum is the canonical statement of what is in scope for the current build.
+
+### Audience reduction
+
+The original PRD targets two audiences:
+
+1. **Bank buyer** — Chief Compliance Officer at mid-size bank (500K–10M accounts), India jurisdiction-first, commercial product
+2. **Path B** — IBM watsonx Orchestrate + Agent Development Kit (ADK) reference implementation showcase
+
+**The current build serves audience #2 only.** The deliverable is a local demo run synchronously by Kamal for three internal stakeholders, proving that a full-fledged professional application can be built using IBM ADK agents. The bank-buyer commercial roadmap (LOIs, pilot, paying bank, RBI/FIU validation) is deferred indefinitely. The build is terminal — no production rollout follows.
+
+### Re-scoped success criteria (active)
+
+- All MVP agents demonstrably exercise distinct ADK patterns per the Path B pattern checklist (NFR-RI1) — supervisor/collaborator, agent-as-tool, Pydantic-contracted tools, HITL approval, conversational-with-mesh-as-tools
+- Three stakeholders watching synchronously walk away with a clear "I didn't know Orchestrate could do this" reaction
+- UI fidelity matches the mockup; demo presents as a professional product, not a tooling demo
+- Fresh-clone to running demo in **≤60 minutes** (relaxed from NFR-RI5's ≤30 min target)
+
+### Deferred success criteria (bank-buyer)
+
+- Median SME case time ≤ 15 min, officer NPS ≥ 40, 80% "changes how I feel about the work," mock audit zero remediation, agent precision ≥ 95% on benchmarks, signed pilot LOIs, paid bank by 12-month — **all deferred indefinitely.**
+
+### Functional requirements impact (summary)
+
+| Status | Requirements |
+|---|---|
+| **Kept** | FR1–4, FR7–17 (FR17 reduced to MCA-only), FR18–21, FR22–26, FR30 (UI-side gating), FR33–34 (PDF only), FR36–39 |
+| **Simplified** | FR28 (JSON log instead of cryptographic chain), FR29 (log entry instead of Ed25519 signature) |
+| **Deferred** | FR5–6, FR27, FR31–32, FR35, FR40–56 |
+
+### Non-functional requirements impact (summary)
+
+- **NFR-RI (Path B / Reference Implementation):** **Promoted to primary success metric.** NFR-RI1 (ADK pattern coverage), NFR-RI3 (Ruff/mypy/ESLint/TS strict), NFR-RI5 (clone-to-demo, relaxed to ≤60 min), and NFR-RI7 (Jinja templates with golden inputs) all kept.
+- **NFR-S (security), NFR-A (availability), NFR-SC (scalability), NFR-AC (accessibility audit), NFR-O (observability infrastructure), NFR-Compliance:** All deferred for the demo.
+- **NFR-P (performance):** Targets remain aspirational; no formal verification.
+
+### Reference
+
+For the full impact analysis, recommended approach, and detailed change proposals, see `Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md`. For the re-scoped epic and story breakdown, see `Documentation/planning-artifacts/epics.md` (rewritten 2026-04-29).
+
+---
+
 ## Project Classification
 
 | Dimension | Value |

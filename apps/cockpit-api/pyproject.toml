@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "cockpit-api"
+version = "0.1.0"
+description = "FastAPI service backing the KYC Cockpit."
+authors = ["Kamal Singh <kamalkantsingh10@gmail.com>"]
+readme = "README.md"
+packages = [{ include = "cockpit_api", from = "src" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = {extras = ["all"], version = "^0.136.1"}
+sqlalchemy = {extras = ["asyncio"], version = "^2.0.49"}
+pydantic = "^2.13.3"
+asyncpg = "^0.31.0"
+alembic = "^1.18.4"
+contracts = {path = "../../packages/contracts", develop = true}
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0.3"
+pytest-asyncio = "^1.3.0"
+pytest-cov = "^7.1.0"
+ruff = "^0.15.12"
+mypy = "^1.20.2"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Defensive: dev machines that source ROS (e.g. /opt/ros/jazzy/setup.bash)
+# leak ament/launch pytest plugins into PYTHONPATH. Disable them so the
+# suite is hermetic. Harmless on machines without ROS.
+addopts = "-p no:launch_testing -p no:launch_ros -p no:ament_copyright -p no:ament_lint -p no:ament_flake8 -p no:ament_pep257 -p no:ament_xmllint"
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+packages = ["cockpit_api"]
+explicit_package_bases = true
+
+# asyncpg ships no PEP 561 stubs; allow import without typeshed coverage.
+[[tool.mypy.overrides]]
+module = "asyncpg"
+ignore_missing_imports = true
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

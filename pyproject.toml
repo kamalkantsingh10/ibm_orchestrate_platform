@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "ibm-orchestrate-platform-tooling"
+version = "0.0.0"
+description = "Repo-wide developer tooling (pre-commit, actionlint). Not a runtime package."
+authors = ["Kamal Singh <kamalkantsingh10@gmail.com>"]
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pre-commit = "^4.6.0"
+actionlint-py = "^1.7.12"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
