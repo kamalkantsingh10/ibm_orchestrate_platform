@@ -61,7 +61,7 @@ development_status:
   1-1-bootstrap-the-polyglot-monorepo-from-the-canonical-scaffold: review
   1-2-one-command-local-development-environment: review
   1-3-cicd-skeleton-with-oidc-federated-cloud-creds: review  # already demo-scoped by dev 2026-04-29; OIDC federated cloud creds removed
-  1-4-cockpit-shell-with-user-switcher-three-hardcoded-roles: ready-for-dev  # NEW (replaces 1-6 OIDC + 1-10 auth-protected shell); story file created 2026-04-29
+  1-4-cockpit-shell-with-user-switcher-three-hardcoded-roles: review  # NEW (replaces 1-6 OIDC + 1-10 auth-protected shell); story file created 2026-04-29; impl 2026-04-29
   1-5-fresh-clone-to-running-demo-in-sixty-minutes: ready-for-dev      # NEW (relaxes NFR-RI5 from 30min to 60min as explicit AC); story file created 2026-04-29
   epic-1-retrospective: optional
 

@@ -30,4 +30,13 @@ export default defineConfig([
       react: { version: '19.2.0' },
     },
   },
+  {
+    // TanStack Router route files export both a `Route` constant and the
+    // component — the canonical pattern. Disable Fast Refresh's "components
+    // only" rule here. HMR still works for the component body.
+    files: ['src/routes/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ]);

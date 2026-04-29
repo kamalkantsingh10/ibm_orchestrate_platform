@@ -75,6 +75,20 @@ make clean        # remove venvs, node_modules, build artefacts
 make clean-volumes # ⚠️ DROPS local Postgres data
 ```
 
+The cockpit opens as the **Analyst** (Kamal Singh). Use the user dropdown in the top right to switch among the three demo roles — see [Demo users](#demo-users).
+
+## Demo users
+
+The demo build (re-scoped 2026-04-29) has no real auth. Three hardcoded users back the user-switcher dropdown — switching among them changes the visible routes. See `Documentation/implementation-artifacts/1-4-cockpit-shell-with-user-switcher-three-hardcoded-roles.md` for the full story context.
+
+| Role | Name | Default route | Persona reference |
+|---|---|---|---|
+| Analyst | Kamal Singh | `/queue` | UX User Journey 1 (Priya — substituted for the demo presenter) |
+| Team Lead | Rohan Mehta | `/approvals` | UX User Journey 3 |
+| Regulator | Anika Iyer | `/regulator-lens` | UX User Journey 4 |
+
+UUIDs are pinned in `packages/contracts/src/contracts/users.py` and mirrored in `.env.example` (`DEMO_ANALYST_ID`, `DEMO_TEAM_LEAD_ID`, `DEMO_REGULATOR_ID`). The contract is the source of truth.
+
 ## Cold-start budget (G6)
 
 `make dev` cold-start budget is **≤ 90 seconds** from invocation to all
