@@ -1,1 +1,69 @@
 Generic single-database configuration.
+
+# SQLite ↔ Postgres portability rules
+
+The demo runs on SQLite (`sqlite+aiosqlite:///./data/cockpit.db`). The
+bank-buyer scope (parked, see `docs/architecture.md#Demo Scope Addendum`)
+runs on Postgres. Migrations are written to apply cleanly against both —
+no Postgres-only features in `versions/*.py`.
+
+When authoring a new migration, prefer:
+
+| Use                          | Avoid                                |
+| ---------------------------- | ------------------------------------ |
+| `sa.JSON()`                  | `postgresql.JSONB()`                 |
+| `sa.String(36)` for UUIDs    | `postgresql.UUID()`                  |
+| `sa.String(32)` for ENUMs    | `postgresql.ENUM(...)` / `sa.Enum`   |
+| `sa.text("CURRENT_TIMESTAMP")` server defaults | `sa.text("gen_random_uuid()")` and other Postgres-only functions |
+| Application-level CHECK via Pydantic + state machine | Native ENUM column types |
+
+`alembic --autogenerate` occasionally infers Postgres-native types
+(`UUID`, `JSONB`) when run against a Postgres scratch DB — always
+inspect the generated revision file before committing.
+
+# Case state machine
+
+The `cases.state` column stores a free-form `String(32)`; the legal
+transitions are enforced in Python by
+`contracts.cases.assert_transition` (single source of truth).
+
+```
+intake_scheduled ──► decision_ready ──► committed ──► closed
+       │                  │                ▲           ▲
+       │                  └────► escalated ┘           │
+       ├──────────────────────► escalated ─────────────┤
+       └──────────────────────► closed ────────────────┘
+```
+
+```mermaid
+stateDiagram-v2
+    [*] --> intake_scheduled
+    intake_scheduled --> decision_ready
+    intake_scheduled --> escalated
+    intake_scheduled --> closed
+    decision_ready --> committed
+    decision_ready --> escalated
+    decision_ready --> closed
+    committed --> closed
+    escalated --> committed
+    escalated --> closed
+    closed --> [*]
+```
+
+`closure_date` is populated only on transition into `closed`. `committed`
+and `escalated` are non-terminal — a case stays "open" through the 120-second
+undo window (Story 7-4) and can return from `escalated` to `committed`.
+
+The diagram above is the canonical reference for Story 7-9 (decision outcomes)
+and Story 10-2 (approve-with-conditions). Update both this file and
+`packages/contracts/src/contracts/cases.py::ALLOWED_TRANSITIONS` in lock-step.
+
+# Ledger note (Story 3-1)
+
+The demo's ledger is a JSONL file at `./data/ledger.jsonl`, not a Postgres
+schema. There are no `ledger_entries` migrations. The bank-buyer scope's
+per-tenant `ledger.ledger_entries` table + `BEFORE UPDATE OR DELETE`
+triggers + `ledger_writer` role would land here if the bank-buyer scope is
+revived. For now, append-only is enforced by Python convention — see
+`cockpit_api.services.ledger_service`. A unit test asserts the public
+surface of `LedgerWriter` is exactly `{"append"}`.

@@ -5,7 +5,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { UserSwitcher } from './UserSwitcher';
-import { DEMO_USERS } from '@/lib/types/user';
+import { DEMO_USERS } from '@/lib/demoUsers';
 import { useCurrentUser } from '@/stores/currentUser';
 
 const navigateMock = vi.fn();

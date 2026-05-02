@@ -13,7 +13,7 @@ import { Route as IndexRoute } from './routes/index';
 import { Route as QueueRoute } from './routes/queue';
 import { Route as ApprovalsRoute } from './routes/approvals';
 import { Route as RegulatorLensRoute } from './routes/regulator-lens';
-import { DEMO_USERS } from '@/lib/types/user';
+import { DEMO_USERS } from '@/lib/demoUsers';
 import { useCurrentUser } from '@/stores/currentUser';
 
 function makeRouter(initialPath: string) {

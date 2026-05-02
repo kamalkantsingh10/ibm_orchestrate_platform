@@ -12,12 +12,14 @@ import { Route as IndexRoute } from './routes/index';
 import { Route as QueueRoute } from './routes/queue';
 import { Route as ApprovalsRoute } from './routes/approvals';
 import { Route as RegulatorLensRoute } from './routes/regulator-lens';
+import { Route as CaseDetailRoute } from './routes/cases.$caseId';
 
 const routeTree = RootRoute.addChildren([
   IndexRoute,
   QueueRoute,
   ApprovalsRoute,
   RegulatorLensRoute,
+  CaseDetailRoute,
 ]);
 
 export const router = createRouter({ routeTree });

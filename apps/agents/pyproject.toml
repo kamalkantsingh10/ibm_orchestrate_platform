@@ -5,6 +5,7 @@ description = "IBM watsonx Orchestrate ADK agents for the KYC Cockpit."
 authors = ["Kamal Singh <kamalkantsingh10@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "agents", from = "src" }]
+include = [{ path = "src/agents/py.typed", format = ["sdist", "wheel"] }]
 
 [tool.poetry.dependencies]
 # ibm-watsonx-orchestrate constrains the upper bound to <3.14, so we
@@ -12,6 +13,16 @@ packages = [{ include = "agents", from = "src" }]
 python = ">=3.11,<3.14"
 ibm-watsonx-orchestrate = "^2.8.0"
 contracts = {path = "../../packages/contracts", develop = true}
+# Story 3.2 — the @agent_action decorator imports LedgerWriter from cockpit-api.
+# Architecture A3 collapses both apps into one process at runtime; this path
+# dep is a build-time aid. The runtime call graph is still
+# router → service → supervisor → agents (cockpit-api never imports agents).
+cockpit-api = {path = "../cockpit-api", develop = true}
+# Story 3.4 — pypdf for offline text extraction (watsonx mode); Jinja for
+# prompt templates (transitively via FastAPI in cockpit-api but pinned here
+# for explicit ownership in the prompts module).
+pypdf = "^4.0.0"
+jinja2 = "^3.1.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -44,6 +55,12 @@ explicit_package_bases = true
 # unknown types from that namespace until upstream stubs catch up.
 [[tool.mypy.overrides]]
 module = "ibm_watsonx_orchestrate.*"
+ignore_missing_imports = true
+
+# pyyaml ships without bundled stubs in this venv; types-PyYAML is large
+# and not worth pulling in just for a single load.
+[[tool.mypy.overrides]]
+module = "yaml"
 ignore_missing_imports = true
 
 [build-system]

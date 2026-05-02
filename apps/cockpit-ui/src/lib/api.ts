@@ -1,21 +1,33 @@
-// Hand-rolled fetch wrapper for the cockpit-api (Story 1.4 AC #11).
-// Injects the X-Cockpit-Demo-User header on every request.
-// TODO(story-2-11): swap to openapi-fetch once `make contracts` exports types.
+// Typed API client for the cockpit-api (Story 2.2).
+//
+// Uses openapi-fetch over the generated `paths` type from `@/api-types`.
+// The X-Cockpit-Demo-User header is read on every request from the
+// Zustand currentUser store so user-switcher changes propagate without
+// recreating the client.
+//
+// Default `baseUrl` is empty (same-origin) so requests go through Vite's
+// dev-server proxy — see vite.config.ts. This keeps the demo behind a
+// single URL when exposed via ngrok / cloudflared. Override with
+// `VITE_API_BASE_URL` for builds that talk directly to a remote API.
 
+import createClient from 'openapi-fetch';
+import type { paths } from '@/api-types';
 import { useCurrentUser } from '@/stores/currentUser';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const { user } = useCurrentUser.getState();
-  const headers = new Headers(init.headers);
-  headers.set('X-Cockpit-Demo-User', user.id);
-  headers.set('Accept', 'application/json');
+export const apiClient = createClient<paths>({
+  baseUrl: API_BASE,
+  headers: {
+    Accept: 'application/json',
+  },
+  // Indirect through globalThis so vi.stubGlobal('fetch', ...) works in tests.
+  fetch: (...args) => globalThis.fetch(...args),
+});
 
-  const resp = await fetch(`${API_BASE}${path}`, { ...init, headers });
-  if (!resp.ok) {
-    const text = await resp.text().catch(() => '');
-    throw new Error(`API ${resp.status} ${resp.statusText}: ${text}`);
-  }
-  return (await resp.json()) as T;
-}
+apiClient.use({
+  onRequest({ request }) {
+    request.headers.set('X-Cockpit-Demo-User', useCurrentUser.getState().user.id);
+    return request;
+  },
+});

@@ -1,5 +1,5 @@
 # generated: 2026-04-27
-# last_updated: 2026-04-29 (re-scoped to demo)
+# last_updated: 2026-04-29 (Epic 2 stories created)
 # project: ibm_orchestrate_platform
 # project_key: NOKEY
 # tracking_system: file-system
@@ -45,7 +45,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-27
-last_updated: 2026-04-29
+last_updated: 2026-05-01  # Epic 3 stories 3.1–3.8 all in review (Amelia)
 project: ibm_orchestrate_platform
 project_key: NOKEY
 tracking_system: file-system
@@ -62,30 +62,31 @@ development_status:
   1-2-one-command-local-development-environment: review
   1-3-cicd-skeleton-with-oidc-federated-cloud-creds: review  # already demo-scoped by dev 2026-04-29; OIDC federated cloud creds removed
   1-4-cockpit-shell-with-user-switcher-three-hardcoded-roles: review  # NEW (replaces 1-6 OIDC + 1-10 auth-protected shell); story file created 2026-04-29; impl 2026-04-29
-  1-5-fresh-clone-to-running-demo-in-sixty-minutes: ready-for-dev      # NEW (relaxes NFR-RI5 from 30min to 60min as explicit AC); story file created 2026-04-29
+  1-5-fresh-clone-to-running-demo-in-sixty-minutes: review              # NEW (relaxes NFR-RI5 from 30min to 60min); impl 2026-04-29
   epic-1-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
   # Epic 2 — Case Ingest & Lifecycle (4 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-2: backlog
-  2-1-case-schema-and-state-machine: backlog
-  2-2-get-case-retrieval-api-consumer: backlog
-  2-3-case-appears-in-queue-rail-basic-ordering: backlog
-  2-4-fixture-case-loader-with-three-seeded-cases: backlog  # NEW (replaces ingestion API + presigned upload)
+  epic-2: in-progress
+  2-1-case-schema-and-state-machine: review                      # story file created 2026-04-29; impl 2026-04-30
+  2-2-get-case-retrieval-api-consumer: review                    # story file created 2026-04-29; impl 2026-04-30
+  2-3-case-appears-in-queue-rail-basic-ordering: review          # story file created 2026-04-29; impl 2026-04-30
+  2-4-fixture-case-loader-with-three-seeded-cases: review        # NEW (replaces ingestion API + presigned upload); story file created 2026-04-29; impl 2026-04-30
   epic-2-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 3 — First Agent & Audit Log (7 stories)
+  # Epic 3 — First Agent & Audit Log (8 stories — 3.8 added 2026-05-01)
   # ────────────────────────────────────────────────────────────────────
-  epic-3: backlog
-  3-1-append-only-ledger-schema-with-insert-only-writer: backlog        # simplified: JSON file, not Postgres + hash chain
-  3-2-agent-action-decorator: backlog
-  3-3-pydantic-contracts-for-ledger-provenance-confidence: backlog
-  3-4-document-intelligence-agent-llm-extract: backlog                  # simplified: LLM extract, no DocAI integration
-  3-5-case-supervisor-intake-fan-out: backlog
-  3-6-documents-panel-on-case-canvas-with-provenance-pills: backlog
-  3-7-confidence-pill-component: backlog
+  epic-3: in-progress
+  3-1-append-only-ledger-schema-with-insert-only-writer: review        # simplified: JSON file, not Postgres + hash chain; story file created 2026-04-30; impl 2026-04-30
+  3-2-agent-action-decorator: review                                   # story file created 2026-04-30; impl 2026-04-30
+  3-3-pydantic-contracts-for-ledger-provenance-confidence: review      # story file created 2026-04-30; impl 2026-04-30
+  3-4-document-intelligence-agent-llm-extract: review                  # simplified: LLM extract, no DocAI integration; story file created 2026-04-30; impl 2026-04-30 (post-review pivot to real ADK integration)
+  3-5-case-supervisor-intake-fan-out: review                            # story file created 2026-04-30; impl 2026-05-01
+  3-6-documents-panel-on-case-canvas-with-provenance-pills: review      # story file created 2026-04-30; impl 2026-05-01
+  3-7-confidence-pill-component: review                                 # story file created 2026-04-30; impl 2026-05-01 (sequenced before 3.6 per its dev notes)
+  3-8-document-upload-with-real-pdf-processing: review                  # story file created 2026-05-01; impl 2026-05-01
   epic-3-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────

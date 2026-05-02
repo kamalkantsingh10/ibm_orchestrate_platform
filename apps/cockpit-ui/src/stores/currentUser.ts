@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DEMO_USERS, type User } from '@/lib/types/user';
+import { DEMO_USERS, type User } from '@/lib/demoUsers';
 
 interface CurrentUserState {
   user: User;

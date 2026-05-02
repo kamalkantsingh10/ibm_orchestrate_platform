@@ -1,0 +1,404 @@
+openapi: 3.0.3
+info:
+  title: KYC Document Intelligence (ADK Tool)
+  version: 0.1.0
+  description: Document Intelligence agent exposed for ADK runtime tool registration.
+    The watsonx Orchestrate runtime calls this endpoint when an agent decides to invoke
+    `extract_document_fields`.
+servers:
+  - url: http://host.docker.internal:8000
+    description: Cockpit API on the host (resolved from inside the Developer Edition
+      Docker network).
+paths:
+  /v1/agents/document_intelligence/extract:
+    post:
+      tags:
+        - agents
+      summary: Run the Document Intelligence agent against a case's documents
+      description: Calls the Document Intelligence agent with the supplied case id
+        and document refs. Returns the extracted fields with provenance + confidence
+        band. Every invocation writes one ledger entry.
+      operationId: extract_document_fields
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentIntelligenceInput'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentIntelligenceOutput'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+components:
+  schemas:
+    CaseEnvelope:
+      properties:
+        id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Id
+        state:
+          $ref: '#/components/schemas/CaseState'
+        customer_metadata:
+          $ref: '#/components/schemas/CustomerMetadata'
+        assigned_to_user_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Assigned To User Id
+        risk_band:
+          anyOf:
+            - type: string
+              enum:
+                - low
+                - medium_low
+                - medium_high
+                - high
+            - type: 'null'
+          title: Risk Band
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        updated_at:
+          type: string
+          format: date-time
+          title: Updated At
+        closure_date:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Closure Date
+        _links:
+          additionalProperties:
+            anyOf:
+              - type: string
+              - type: 'null'
+          type: object
+          title: Links
+      type: object
+      required:
+        - id
+        - state
+        - customer_metadata
+        - created_at
+        - updated_at
+      title: CaseEnvelope
+      description: '``Case`` plus the API-shape-only ``_links`` placeholder.'
+    CaseIntakeOutcome:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        status:
+          type: string
+          enum:
+            - completed
+            - blocked
+          title: Status
+        agents_run:
+          items:
+            type: string
+          type: array
+          title: Agents Run
+        failed_agent:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Failed Agent
+        error_message:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Error Message
+        fields_extracted:
+          type: integer
+          minimum: 0.0
+          title: Fields Extracted
+          default: 0
+        completed_at:
+          type: string
+          format: date-time
+          title: Completed At
+      type: object
+      required:
+        - case_id
+        - status
+        - completed_at
+      title: CaseIntakeOutcome
+      description: Result envelope for one case-intake supervisor run.
+    CaseListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/CaseEnvelope'
+          type: array
+          title: Items
+        next_cursor:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Next Cursor
+        has_more:
+          type: boolean
+          title: Has More
+          default: false
+      type: object
+      required:
+        - items
+      title: CaseListResponse
+      description: Pagination envelope per ``architecture.md#Format Patterns``.
+    CaseState:
+      type: string
+      enum:
+        - intake_scheduled
+        - decision_ready
+        - committed
+        - escalated
+        - closed
+      title: CaseState
+      description: Lifecycle states. See ``ALLOWED_TRANSITIONS`` for the edge set.
+    ConfidenceBand:
+      type: string
+      enum:
+        - low
+        - medium_low
+        - medium_high
+        - high
+      title: ConfidenceBand
+      description: Four-tier confidence banding. Wire format is snake_case.
+    CustomerMetadata:
+      properties:
+        customer_name:
+          type: string
+          minLength: 1
+          title: Customer Name
+        customer_type:
+          anyOf:
+            - type: string
+              enum:
+                - individual
+                - company
+            - type: 'null'
+          title: Customer Type
+        country:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Country
+        extra:
+          additionalProperties: true
+          type: object
+          title: Extra
+      type: object
+      required:
+        - customer_name
+      title: CustomerMetadata
+      description: 'Customer-side facts attached to a case.
+
+
+        ``extra`` is an extensibility escape hatch so fixtures (Story 2-4) can carry
+
+        demo-only fields without schema churn. Production code should prefer named
+
+        fields over ``extra`` once the bank-buyer scope revives.'
+    DocumentIntelligenceInput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        document_refs:
+          items:
+            type: string
+            minLength: 1
+          type: array
+          minItems: 0
+          title: Document Refs
+      type: object
+      required:
+        - case_id
+        - document_refs
+      title: DocumentIntelligenceInput
+    DocumentIntelligenceOutput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        extracted_fields:
+          items:
+            $ref: '#/components/schemas/ExtractedField'
+          type: array
+          title: Extracted Fields
+      type: object
+      required:
+        - case_id
+      title: DocumentIntelligenceOutput
+      description: "Aggregate of ExtractedFields across all input document_refs.\n\
+        \nNote (Story 3.4 \xA7 AC8): ``evidence_ids`` inside each ``ExtractedField.value``\n\
+        are empty when the agent returns. The supervisor (Story 3-5) back-fills\n\
+        them with the agent's own ledger-entry ID after ``@agent_action`` writes\n\
+        the entry."
+    ExtractedField:
+      properties:
+        field_name:
+          type: string
+          minLength: 1
+          title: Field Name
+        document_ref:
+          type: string
+          minLength: 1
+          title: Document Ref
+        value:
+          $ref: '#/components/schemas/ProvenancedField_Union_str__int__float__bool__NoneType__'
+      type: object
+      required:
+        - field_name
+        - document_ref
+        - value
+      title: ExtractedField
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    Provenance:
+      properties:
+        source_agent:
+          type: string
+          minLength: 1
+          title: Source Agent
+        source_system:
+          type: string
+          minLength: 1
+          title: Source System
+        confidence:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+        confidence_band:
+          $ref: '#/components/schemas/ConfidenceBand'
+        evidence_ids:
+          items:
+            type: string
+            maxLength: 30
+            minLength: 30
+            pattern: ^led_[0-9A-HJKMNP-TV-Z]{26}$
+          type: array
+          title: Evidence Ids
+        captured_at:
+          type: string
+          format: date-time
+          title: Captured At
+      type: object
+      required:
+        - source_agent
+        - source_system
+        - confidence
+        - confidence_band
+        - captured_at
+      title: Provenance
+      description: Per-datum provenance metadata.
+    ProvenancedField_Union_str__int__float__bool__NoneType__:
+      properties:
+        value:
+          anyOf:
+            - type: string
+            - type: integer
+            - type: number
+            - type: boolean
+            - type: 'null'
+          title: Value
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+      type: object
+      required:
+        - value
+        - provenance
+      title: ProvenancedField[Union[str, int, float, bool, NoneType]]
+    Role:
+      type: string
+      enum:
+        - analyst
+        - team_lead
+        - regulator
+      title: Role
+      description: Three demo roles. Wire format is snake_case per architecture.md#Naming
+        Patterns.
+    User:
+      properties:
+        id:
+          type: string
+          minLength: 1
+          title: Id
+        name:
+          type: string
+          minLength: 1
+          title: Name
+        role:
+          $ref: '#/components/schemas/Role'
+        initials:
+          type: string
+          maxLength: 4
+          minLength: 1
+          title: Initials
+      type: object
+      required:
+        - id
+        - name
+        - role
+        - initials
+      title: User
+      description: "A demo user. Identity-only \u2014 no auth, no permissions, no\
+        \ tenant."
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+              - type: string
+              - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+        input:
+          title: Input
+        ctx:
+          type: object
+          title: Context
+      type: object
+      required:
+        - loc
+        - msg
+        - type
+      title: ValidationError

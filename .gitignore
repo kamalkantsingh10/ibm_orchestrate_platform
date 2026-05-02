@@ -45,6 +45,30 @@ coverage/
 htmlcov/
 .nyc_output/
 
-# Logs
+# Logs (Story 2.x dev-runtime output lands in logs/; folder kept via .gitkeep)
 *.log
-logs/
+logs/*
+!logs/.gitkeep
+
+# SQLite demo DB (Story 1.5). Folder kept via data/.gitkeep; the .db file
+# is per-developer mutable state and must not be committed.
+data/cockpit.db
+data/cockpit.db-journal
+data/cockpit.db-wal
+data/cockpit.db-shm
+
+# Story 3.1 — append-only JSONL ledger. Per-developer mutable state.
+data/ledger.jsonl
+apps/agents/data/ledger.jsonl
+apps/agents/data/cockpit.db
+apps/agents/data/cockpit.db-journal
+apps/agents/data/cockpit.db-wal
+apps/agents/data/cockpit.db-shm
+
+# Story 3.8 — uploaded PDFs and generated sample PDFs are per-developer
+# mutable state, not committed. demo-reset wipes ./fixtures/uploads/.
+fixtures/uploads/
+fixtures/sample_pdfs/
+
+# TanStack Router file-based codegen output (re-enable swap; cockpit-ui).
+apps/cockpit-ui/src/routeTree.gen.ts

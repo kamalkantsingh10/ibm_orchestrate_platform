@@ -23,10 +23,10 @@ permissions:
   contents: read
 
 env:
-  POETRY_VERSION: "1.8.4"
-  PYTHON_VERSION: "3.11"
-  NODE_VERSION: "20"
-  PNPM_VERSION: "9"
+  POETRY_VERSION: '1.8.4'
+  PYTHON_VERSION: '3.11'
+  NODE_VERSION: '20'
+  PNPM_VERSION: '9'
 
 jobs:
   lint-and-test:
@@ -74,6 +74,14 @@ jobs:
       - name: make test
         run: make test
 
+      # Story 2.2 — fail PRs whose router/contract changes weren't followed
+      # by `make contracts`. Drift means the cockpit-ui types disagree with
+      # the live OpenAPI shape.
+      - name: make contracts (drift check)
+        run: |
+          make contracts
+          git diff --exit-code packages/contracts/openapi.json apps/cockpit-ui/src/api-types.ts
+
   secrets-scan:
     name: secrets scan (gitleaks)
     runs-on: ubuntu-latest
@@ -87,3 +95,83 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
+
+  # Story 1.5 — keep the clone-to-running path from rotting. Brings up the
+  # cockpit stack against SQLite + filesystem (no docker infra) and runs
+  # `make verify` against it. ADK runtime check is skipped (CI=1) because
+  # the agents container isn't brought up here.
+  demo-verify:
+    name: demo verify (clone → bootstrap → migrate → seed → verify)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install Poetry
+        run: pipx install "poetry==${POETRY_VERSION}"
+
+      - name: Configure Poetry to use in-project venvs
+        run: poetry config virtualenvs.in-project true
+
+      - name: Cache Poetry virtualenvs
+        uses: actions/cache@v4
+        with:
+          path: |
+            .venv
+            apps/cockpit-api/.venv
+            apps/agents/.venv
+            packages/contracts/.venv
+            tools/verifier/.venv
+          key: poetry-${{ runner.os }}-${{ hashFiles('poetry.lock', 'apps/*/poetry.lock', 'packages/*/poetry.lock', 'tools/*/poetry.lock') }}
+
+      - name: Bootstrap workspace
+        run: make bootstrap
+
+      - name: Apply migrations against SQLite
+        run: make migrate
+
+      - name: Seed demo data (gracefully no-ops while schema is empty)
+        run: make seed
+
+      - name: Start cockpit-api + cockpit-ui in background
+        run: |
+          make dev > /tmp/dev.log 2>&1 &
+          echo $! > /tmp/dev.pid
+          # Give uvicorn + Vite time to bind ports.
+          sleep 30
+
+      - name: Verify the demo
+        env:
+          CI: '1'
+        run: make verify
+
+      - name: Stop background dev runtimes
+        if: always()
+        run: |
+          if [ -f /tmp/dev.pid ]; then
+            kill -TERM "$(cat /tmp/dev.pid)" 2>/dev/null || true
+          fi
+
+      - name: Upload dev runtime log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev-log
+          path: /tmp/dev.log
+          if-no-files-found: ignore
+
+      - name: Run verify_demo.sh self-test
+        run: bash tools/scripts/test_verify_demo.sh

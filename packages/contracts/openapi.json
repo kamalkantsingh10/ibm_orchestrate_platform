@@ -1,0 +1,871 @@
+{
+  "components": {
+    "schemas": {
+      "CaseEnvelope": {
+        "description": "``Case`` plus the API-shape-only ``_links`` placeholder.",
+        "properties": {
+          "_links": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Links",
+            "type": "object"
+          },
+          "assigned_to_user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assigned To User Id"
+          },
+          "closure_date": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closure Date"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "customer_metadata": {
+            "$ref": "#/components/schemas/CustomerMetadata"
+          },
+          "id": {
+            "maxLength": 31,
+            "minLength": 31,
+            "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "risk_band": {
+            "anyOf": [
+              {
+                "enum": [
+                  "low",
+                  "medium_low",
+                  "medium_high",
+                  "high"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Risk Band"
+          },
+          "state": {
+            "$ref": "#/components/schemas/CaseState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "customer_metadata",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "CaseEnvelope",
+        "type": "object"
+      },
+      "CaseIntakeOutcome": {
+        "description": "Result envelope for one case-intake supervisor run.",
+        "properties": {
+          "agents_run": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Agents Run",
+            "type": "array"
+          },
+          "case_id": {
+            "maxLength": 31,
+            "minLength": 31,
+            "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "completed_at": {
+            "format": "date-time",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "failed_agent": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Agent"
+          },
+          "fields_extracted": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Fields Extracted",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "blocked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "status",
+          "completed_at"
+        ],
+        "title": "CaseIntakeOutcome",
+        "type": "object"
+      },
+      "CaseListResponse": {
+        "description": "Pagination envelope per ``architecture.md#Format Patterns``.",
+        "properties": {
+          "has_more": {
+            "default": false,
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CaseEnvelope"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "CaseListResponse",
+        "type": "object"
+      },
+      "CaseState": {
+        "description": "Lifecycle states. See ``ALLOWED_TRANSITIONS`` for the edge set.",
+        "enum": [
+          "intake_scheduled",
+          "decision_ready",
+          "committed",
+          "escalated",
+          "closed"
+        ],
+        "title": "CaseState",
+        "type": "string"
+      },
+      "ConfidenceBand": {
+        "description": "Four-tier confidence banding. Wire format is snake_case.",
+        "enum": [
+          "low",
+          "medium_low",
+          "medium_high",
+          "high"
+        ],
+        "title": "ConfidenceBand",
+        "type": "string"
+      },
+      "CustomerMetadata": {
+        "description": "Customer-side facts attached to a case.\n\n``extra`` is an extensibility escape hatch so fixtures (Story 2-4) can carry\ndemo-only fields without schema churn. Production code should prefer named\nfields over ``extra`` once the bank-buyer scope revives.",
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Country"
+          },
+          "customer_name": {
+            "minLength": 1,
+            "title": "Customer Name",
+            "type": "string"
+          },
+          "customer_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "individual",
+                  "company"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Customer Type"
+          },
+          "extra": {
+            "additionalProperties": true,
+            "title": "Extra",
+            "type": "object"
+          }
+        },
+        "required": [
+          "customer_name"
+        ],
+        "title": "CustomerMetadata",
+        "type": "object"
+      },
+      "DocumentIntelligenceInput": {
+        "properties": {
+          "case_id": {
+            "maxLength": 31,
+            "minLength": 31,
+            "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "document_refs": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 0,
+            "title": "Document Refs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "document_refs"
+        ],
+        "title": "DocumentIntelligenceInput",
+        "type": "object"
+      },
+      "DocumentIntelligenceOutput": {
+        "description": "Aggregate of ExtractedFields across all input document_refs.\n\nNote (Story 3.4 \u00a7 AC8): ``evidence_ids`` inside each ``ExtractedField.value``\nare empty when the agent returns. The supervisor (Story 3-5) back-fills\nthem with the agent's own ledger-entry ID after ``@agent_action`` writes\nthe entry.",
+        "properties": {
+          "case_id": {
+            "maxLength": 31,
+            "minLength": 31,
+            "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "extracted_fields": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractedField"
+            },
+            "title": "Extracted Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id"
+        ],
+        "title": "DocumentIntelligenceOutput",
+        "type": "object"
+      },
+      "ExtractedField": {
+        "properties": {
+          "document_ref": {
+            "minLength": 1,
+            "title": "Document Ref",
+            "type": "string"
+          },
+          "field_name": {
+            "minLength": 1,
+            "title": "Field Name",
+            "type": "string"
+          },
+          "value": {
+            "$ref": "#/components/schemas/ProvenancedField_Union_str__int__float__bool__NoneType__"
+          }
+        },
+        "required": [
+          "field_name",
+          "document_ref",
+          "value"
+        ],
+        "title": "ExtractedField",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Provenance": {
+        "description": "Per-datum provenance metadata.",
+        "properties": {
+          "captured_at": {
+            "format": "date-time",
+            "title": "Captured At",
+            "type": "string"
+          },
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "confidence_band": {
+            "$ref": "#/components/schemas/ConfidenceBand"
+          },
+          "evidence_ids": {
+            "items": {
+              "maxLength": 30,
+              "minLength": 30,
+              "pattern": "^led_[0-9A-HJKMNP-TV-Z]{26}$",
+              "type": "string"
+            },
+            "title": "Evidence Ids",
+            "type": "array"
+          },
+          "source_agent": {
+            "minLength": 1,
+            "title": "Source Agent",
+            "type": "string"
+          },
+          "source_system": {
+            "minLength": 1,
+            "title": "Source System",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_agent",
+          "source_system",
+          "confidence",
+          "confidence_band",
+          "captured_at"
+        ],
+        "title": "Provenance",
+        "type": "object"
+      },
+      "ProvenancedField_Union_str__int__float__bool__NoneType__": {
+        "properties": {
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value",
+          "provenance"
+        ],
+        "title": "ProvenancedField[Union[str, int, float, bool, NoneType]]",
+        "type": "object"
+      },
+      "Role": {
+        "description": "Three demo roles. Wire format is snake_case per architecture.md#Naming Patterns.",
+        "enum": [
+          "analyst",
+          "team_lead",
+          "regulator"
+        ],
+        "title": "Role",
+        "type": "string"
+      },
+      "User": {
+        "description": "A demo user. Identity-only \u2014 no auth, no permissions, no tenant.",
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "title": "Id",
+            "type": "string"
+          },
+          "initials": {
+            "maxLength": 4,
+            "minLength": 1,
+            "title": "Initials",
+            "type": "string"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "role",
+          "initials"
+        ],
+        "title": "User",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Cockpit API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/v1/agents/document_intelligence/extract": {
+      "post": {
+        "description": "Calls the Document Intelligence agent with the supplied case id and document refs. Returns the extracted fields with provenance + confidence band. Every invocation writes one ledger entry.",
+        "operationId": "extract_document_fields_v1_agents_document_intelligence_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentIntelligenceInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentIntelligenceOutput"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run the Document Intelligence agent against a case's documents",
+        "tags": [
+          "agents"
+        ]
+      }
+    },
+    "/v1/cases": {
+      "get": {
+        "operationId": "list_cases_v1_cases_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Cockpit-Demo-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cockpit-Demo-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List cases (newest first)",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}": {
+      "get": {
+        "operationId": "get_case_v1_cases__case_id__get",
+        "parameters": [
+          {
+            "description": "Case ID (`case_<ULID>`)",
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "description": "Case ID (`case_<ULID>`)",
+              "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Cockpit-Demo-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cockpit-Demo-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get a single case by ID",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/intake": {
+      "post": {
+        "description": "Triggers Story 3.5's CaseSupervisor for the given case. Fans out across the intake-agent registry (currently: Document Intelligence), persists results, transitions the case to decision_ready on success or escalated on agent failure. Returns a typed CaseIntakeOutcome.",
+        "operationId": "run_case_intake_v1_cases__case_id__intake_post",
+        "parameters": [
+          {
+            "description": "Case ID (`case_<ULID>`)",
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "description": "Case ID (`case_<ULID>`)",
+              "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Cockpit-Demo-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cockpit-Demo-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseIntakeOutcome"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Run the Case Supervisor intake fan-out for a case",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/intake/document_intelligence": {
+      "get": {
+        "description": "Returns the typed extraction output produced by Story 3.4's Document Intelligence agent for the given case. 404 if the case doesn't exist OR if intake hasn't run yet \u2014 distinguished by the `detail` field of the RFC 7807 problem body.",
+        "operationId": "get_document_intelligence_intake_v1_cases__case_id__intake_document_intelligence_get",
+        "parameters": [
+          {
+            "description": "Case ID (`case_<ULID>`)",
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "description": "Case ID (`case_<ULID>`)",
+              "pattern": "^case_[0-9A-HJKMNP-TV-Z]{26}$",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Cockpit-Demo-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cockpit-Demo-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentIntelligenceOutput"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get the Document Intelligence agent's intake output for a case",
+        "tags": [
+          "cases"
+        ]
+      }
+    },
+    "/v1/users/me": {
+      "get": {
+        "description": "Return the user identified by ``X-Cockpit-Demo-User``.",
+        "operationId": "me_v1_users_me_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Cockpit-Demo-User",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Cockpit-Demo-User"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Me",
+        "tags": [
+          "users"
+        ]
+      }
+    }
+  }
+}

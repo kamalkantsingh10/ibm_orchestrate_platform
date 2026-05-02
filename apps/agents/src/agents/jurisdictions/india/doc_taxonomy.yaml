@@ -1,0 +1,73 @@
+# India SME doc taxonomy — Story 3.4 / AC #2.
+# Filename heuristics map to these categories; FieldSpec drives expected
+# extraction shape and (optional) regex validation.
+
+incorporation_certificate:
+  - field: company_name
+    type: str
+    required: true
+  - field: cin
+    type: str
+    required: true
+    validation: ^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$
+  - field: incorporation_date
+    type: date
+    required: true
+  - field: registered_address
+    type: str
+    required: true
+
+pan_card:
+  - field: pan
+    type: str
+    required: true
+    validation: ^[A-Z]{5}\d{4}[A-Z]$
+  - field: name
+    type: str
+    required: true
+
+address_proof:
+  - field: address
+    type: str
+    required: true
+
+director_id:
+  - field: din
+    type: str
+    required: false
+    validation: ^\d{8}$
+  - field: director_name
+    type: str
+    required: true
+
+bank_statement:
+  - field: account_holder_name
+    type: str
+    required: true
+  - field: account_number
+    type: str
+    required: true
+
+ubo_declaration:
+  - field: ubo_chain
+    type: str
+    required: true
+
+shareholder_pattern:
+  - field: shareholder_summary
+    type: str
+    required: false
+
+aadhaar:
+  - field: aadhaar_last4
+    type: str
+    validation: ^\d{4}$
+    required: true
+  - field: name
+    type: str
+    required: true
+
+income_proof:
+  - field: annual_income_inr
+    type: int
+    required: false

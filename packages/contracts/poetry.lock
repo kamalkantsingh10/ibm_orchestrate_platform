@@ -600,6 +600,20 @@ pytest = ">=7"
 testing = ["process-tests", "pytest-xdist", "virtualenv"]
 
 [[package]]
+name = "python-ulid"
+version = "3.1.0"
+description = "Universally unique lexicographically sortable identifier"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "python_ulid-3.1.0-py3-none-any.whl", hash = "sha256:e2cdc979c8c877029b4b7a38a6fba3bc4578e4f109a308419ff4d3ccf0a46619"},
+    {file = "python_ulid-3.1.0.tar.gz", hash = "sha256:ff0410a598bc5f6b01b602851a3296ede6f91389f913a5d5f8c496003836f636"},
+]
+
+[package.extras]
+pydantic = ["pydantic (>=2.0)"]
+
+[[package]]
 name = "ruff"
 version = "0.15.12"
 description = "An extremely fast Python linter and code formatter, written in Rust."
@@ -654,4 +668,4 @@ typing-extensions = ">=4.12.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "c226f15134691549e0d828598b5919aa86fd2a9984c339db9f45a3103b51172a"
+content-hash = "1a0865f5d78e9a28d61f05fc864306e3926c7fd0594784cce7e4d0a09e7a5224"

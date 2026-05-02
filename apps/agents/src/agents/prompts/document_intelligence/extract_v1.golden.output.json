@@ -1,0 +1,10 @@
+[
+  { "field_name": "company_name", "value": "Vora Capital Holdings Pvt Ltd", "confidence": 0.94 },
+  { "field_name": "cin", "value": "U67120MH2024PTC444789", "confidence": 0.97 },
+  { "field_name": "incorporation_date", "value": "2024-08-22", "confidence": 0.92 },
+  {
+    "field_name": "registered_address",
+    "value": "Suite 402, Sea Breeze Heights, Bandra West, Mumbai 400050",
+    "confidence": 0.88
+  }
+]

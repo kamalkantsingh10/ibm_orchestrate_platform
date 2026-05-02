@@ -15,7 +15,7 @@ import {
 import { Check, ChevronDown } from 'lucide-react';
 
 import { defaultRouteFor } from '@/lib/routeFor';
-import { DEMO_USERS, type Role, type User } from '@/lib/types/user';
+import { DEMO_USERS, type Role, type User } from '@/lib/demoUsers';
 import { useCurrentUser } from '@/stores/currentUser';
 
 const ROLE_LABEL: Record<Role, string> = {

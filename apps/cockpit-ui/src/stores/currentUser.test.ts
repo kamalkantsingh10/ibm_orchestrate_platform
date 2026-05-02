@@ -2,7 +2,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useCurrentUser } from './currentUser';
-import { DEMO_USERS } from '@/lib/types/user';
+import { DEMO_USERS } from '@/lib/demoUsers';
 
 describe('useCurrentUser', () => {
   beforeEach(() => {

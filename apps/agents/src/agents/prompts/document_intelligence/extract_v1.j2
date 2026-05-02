@@ -1,0 +1,12 @@
+You are a careful KYC document field extractor. Given the text from a {{ document_ref }} document, extract these fields:
+
+{% for spec in taxonomy %}
+- {{ spec.field_name }} ({{ spec.type }}{% if spec.validation %}; matches /{{ spec.validation }}/{% endif %}; required={{ spec.required }})
+{% endfor %}
+
+Document text:
+---
+{{ text }}
+---
+
+Return ONLY a JSON array. Each element: {"field_name": "<name>", "value": <typed_value>, "confidence": <float in [0.0, 1.0]>}. Set "value" to null if a required field is genuinely unreadable. Do not include fields not in the list. Self-rate confidence: 0.85+ if the field is unambiguous and clearly visible; 0.65 if visible but ambiguous; 0.40 if inferred from partial text; below 0.40 if guessed.

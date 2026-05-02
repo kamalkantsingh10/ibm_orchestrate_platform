@@ -9,6 +9,7 @@ packages = [{ include = "contracts", from = "src" }]
 [tool.poetry.dependencies]
 python = "^3.11"
 pydantic = "^2.13.3"
+python-ulid = "^3.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
