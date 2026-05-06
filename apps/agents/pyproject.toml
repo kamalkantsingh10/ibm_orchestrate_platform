@@ -11,7 +11,7 @@ include = [{ path = "src/agents/py.typed", format = ["sdist", "wheel"] }]
 # ibm-watsonx-orchestrate constrains the upper bound to <3.14, so we
 # match its supported range here.
 python = ">=3.11,<3.14"
-ibm-watsonx-orchestrate = "^2.8.0"
+ibm-watsonx-orchestrate = "^2.9.0"
 contracts = {path = "../../packages/contracts", develop = true}
 # Story 3.2 — the @agent_action decorator imports LedgerWriter from cockpit-api.
 # Architecture A3 collapses both apps into one process at runtime; this path
