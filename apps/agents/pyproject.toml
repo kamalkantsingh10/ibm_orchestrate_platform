@@ -21,7 +21,7 @@ cockpit-api = {path = "../cockpit-api", develop = true}
 # Story 3.4 — pypdf for offline text extraction (watsonx mode); Jinja for
 # prompt templates (transitively via FastAPI in cockpit-api but pinned here
 # for explicit ownership in the prompts module).
-pypdf = "^4.0.0"
+pypdf = "^6.10.2"
 jinja2 = "^3.1.0"
 
 
