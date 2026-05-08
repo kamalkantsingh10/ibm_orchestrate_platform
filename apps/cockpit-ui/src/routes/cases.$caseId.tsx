@@ -32,8 +32,11 @@ import { AgentCopilotPane } from '@/components/cockpit/AgentCopilotPane';
 import { DecisionZone, useDecisionZoneFocus } from '@/components/cockpit/DecisionZone';
 import { EvidenceShelf } from '@/components/cockpit/EvidenceShelf';
 import { UndoPill } from '@/components/cockpit/UndoPill';
-import { focusDim, focusDimVariants } from '@/lib/motion';
-import { motion } from 'framer-motion';
+import { EvidenceShelfDock } from '@/components/cockpit/EvidenceShelf';
+import { ZenMode } from '@/components/cockpit/ZenMode';
+import { expand, expandVariants, focusDim, focusDimVariants } from '@/lib/motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useMode } from '@/stores/modeStore';
 import type { components } from '@/api-types';
 
 type ExtractedField = components['schemas']['ExtractedField'];
@@ -66,6 +69,7 @@ function CaseDetailRoute() {
   const queryClient = useQueryClient();
   const currentUser = useCurrentUser((s) => s.user);
   const isDzFocused = useDecisionZoneFocus();
+  const mode = useMode((s) => s.mode);
   const { data: caseEnv, isError: caseError } = useCase(caseId);
   const {
     data: intake,
@@ -136,6 +140,22 @@ function CaseDetailRoute() {
     );
   }
 
+  // Story 8.2 — Zen mode replaces the dense Investigation layout with
+  // a calm writing canvas. Queue rail, agent rail, and the document/UBO
+  // grid are intentionally hidden; only the editor + a placeholder
+  // evidence dock are visible.
+  if (mode === 'zen') {
+    return (
+      <ZenMode
+        caseId={caseId}
+        caseName={caseEnv?.customer_metadata?.customer_name ?? null}
+        evidenceDock={<EvidenceShelfDock caseId={caseId} />}
+      >
+        <DecisionZone caseId={caseId} />
+      </ZenMode>
+    );
+  }
+
   return (
     <div className="flex h-full">
       <aside className="flex-shrink-0">
@@ -147,116 +167,135 @@ function CaseDetailRoute() {
       </aside>
 
       <main className="flex-1 overflow-y-auto p-6 min-w-0">
-        <header className="mb-5">
-          <h1 className="text-lg font-semibold text-zinc-900">
-            {caseEnv?.customer_metadata?.customer_name ?? caseId}
-          </h1>
-          <p className="text-xs text-zinc-500 font-mono">{caseId}</p>
-          {caseEnv?.state ? (
-            <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700">
-              {caseEnv.state.replace(/_/g, ' ')}
-            </span>
-          ) : null}
-        </header>
+        {/* Story 8.1 AC #3 — mode change runs the `expand` preset (250ms)
+           into and out of Zen. The wrapper is keyed by mode so
+           AnimatePresence treats each mode as a distinct subtree. */}
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={mode}
+            data-testid="case-canvas-mode-wrapper"
+            data-mode={mode}
+            variants={expandVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            transition={expand}
+          >
+            <header className="mb-5">
+              <h1 className="text-lg font-semibold text-zinc-900">
+                {caseEnv?.customer_metadata?.customer_name ?? caseId}
+              </h1>
+              <p className="text-xs text-zinc-500 font-mono">{caseId}</p>
+              {caseEnv?.state ? (
+                <span className="inline-block mt-2 px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-700">
+                  {caseEnv.state.replace(/_/g, ' ')}
+                </span>
+              ) : null}
+            </header>
 
-        {/* Tab restructure — Overview / UBO / Decision Zone / Upload.
+            {/* Tab restructure — Overview / UBO / Decision Zone / Upload.
            Only the mid area changes; QueueRail + AgentCopilotPane stay.
            Tabs.Root state lives here so a tab switch doesn't re-mount
            heavy panels. */}
-        <Tabs.Root defaultValue="overview" className="flex flex-col gap-4">
-          <Tabs.List
-            data-testid="case-canvas-tabs"
-            className="flex border-b border-zinc-200"
-            aria-label="Case sections"
-          >
-            {[
-              { value: 'overview', label: 'Overview' },
-              { value: 'ubo', label: 'UBO' },
-              { value: 'decision', label: 'Decision Zone' },
-              { value: 'upload', label: 'Upload document' },
-            ].map((t) => (
-              <Tabs.Trigger
-                key={t.value}
-                value={t.value}
-                data-testid={`tab-${t.value}`}
-                className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 border-b-2 border-transparent data-[state=active]:text-zinc-900 data-[state=active]:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-t"
+            <Tabs.Root defaultValue="overview" className="flex flex-col gap-4">
+              <Tabs.List
+                data-testid="case-canvas-tabs"
+                className="flex border-b border-zinc-200"
+                aria-label="Case sections"
               >
-                {t.label}
-              </Tabs.Trigger>
-            ))}
-          </Tabs.List>
+                {[
+                  { value: 'overview', label: 'Overview' },
+                  { value: 'ubo', label: 'UBO' },
+                  { value: 'decision', label: 'Decision Zone' },
+                  { value: 'upload', label: 'Upload document' },
+                ].map((t) => (
+                  <Tabs.Trigger
+                    key={t.value}
+                    value={t.value}
+                    data-testid={`tab-${t.value}`}
+                    className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-900 border-b-2 border-transparent data-[state=active]:text-zinc-900 data-[state=active]:border-emerald-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 rounded-t"
+                  >
+                    {t.label}
+                  </Tabs.Trigger>
+                ))}
+              </Tabs.List>
 
-          <Tabs.Content value="overview" className="focus-visible:outline-none">
-            {/* Story 7.2 — focusDim preset dims the grid when DecisionZone
+              <Tabs.Content value="overview" className="focus-visible:outline-none">
+                <div className="flex items-center justify-end gap-3 mb-3">
+                  {processError ? (
+                    <span role="alert" className="text-xs text-rose-600">
+                      {processError}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void handleProcess()}
+                    disabled={processing}
+                    data-testid="overview-process-now"
+                    className="text-xs px-3 py-1.5 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                  >
+                    {processing ? 'Processing…' : 'Process now'}
+                  </button>
+                </div>
+                {/* Story 7.2 — focusDim preset dims the grid when DecisionZone
                focused. Tabs unmount-by-default; we keep the motion.div on
                this tab content. */}
-            <motion.div
-              className="grid grid-cols-2 gap-4"
-              variants={focusDimVariants}
-              initial="focused"
-              animate={isDzFocused ? 'dimmed' : 'focused'}
-              transition={focusDim}
-              data-testid="case-canvas-grid"
-              data-dz-focused={isDzFocused ? 'true' : 'false'}
-            >
-              <div className="col-span-2">
-                <DocumentsPanel
-                  output={intake}
-                  isPending={intakePending}
-                  isError={intakeError}
-                  onProvenanceClick={(field) => setTraceTarget({ mode: 'extracted', field })}
-                  caseId={caseId}
-                  pendingDocumentRefs={
-                    (caseEnv?.customer_metadata?.extra?.document_refs as string[] | undefined) ?? []
-                  }
-                />
-              </div>
-              <ScreeningPanel
-                caseId={caseId}
-                onOpenReasoningTrace={(actionId) => {
-                  if (!actionId) return;
-                  setTraceTarget({ mode: 'action', actionId });
-                }}
-              />
-              <RiskPanel caseId={caseId} />
-            </motion.div>
-          </Tabs.Content>
-
-          <Tabs.Content value="ubo" className="focus-visible:outline-none">
-            {/* UBO gets the full canvas width on its own tab so the
-               graph + relationship list have room to breathe. */}
-            <UBOPanel caseId={caseId} />
-          </Tabs.Content>
-
-          <Tabs.Content value="decision" className="focus-visible:outline-none">
-            <DecisionZone
-              caseId={caseId}
-              onToggleEvidence={() => setEvidenceOpen((v) => !v)}
-              evidenceOpen={evidenceOpen}
-            />
-          </Tabs.Content>
-
-          <Tabs.Content value="upload" className="focus-visible:outline-none">
-            <section className="space-y-3">
-              <DocumentUploadZone caseId={caseId} onUploadComplete={handleUploadComplete} />
-              <div className="flex items-center justify-end gap-3">
-                {processError ? (
-                  <span role="alert" className="text-xs text-rose-600">
-                    {processError}
-                  </span>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => void handleProcess()}
-                  disabled={processing}
-                  className="text-xs px-3 py-1.5 rounded bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400"
+                <motion.div
+                  className="grid grid-cols-2 gap-4"
+                  variants={focusDimVariants}
+                  initial="focused"
+                  animate={isDzFocused ? 'dimmed' : 'focused'}
+                  transition={focusDim}
+                  data-testid="case-canvas-grid"
+                  data-dz-focused={isDzFocused ? 'true' : 'false'}
                 >
-                  {processing ? 'Processing…' : 'Process now'}
-                </button>
-              </div>
-            </section>
-          </Tabs.Content>
-        </Tabs.Root>
+                  <div className="col-span-2">
+                    <DocumentsPanel
+                      output={intake}
+                      isPending={intakePending}
+                      isError={intakeError}
+                      onProvenanceClick={(field) => setTraceTarget({ mode: 'extracted', field })}
+                      caseId={caseId}
+                      pendingDocumentRefs={
+                        (caseEnv?.customer_metadata?.extra?.document_refs as
+                          | string[]
+                          | undefined) ?? []
+                      }
+                    />
+                  </div>
+                  <ScreeningPanel
+                    caseId={caseId}
+                    onOpenReasoningTrace={(actionId) => {
+                      if (!actionId) return;
+                      setTraceTarget({ mode: 'action', actionId });
+                    }}
+                  />
+                  <RiskPanel caseId={caseId} />
+                </motion.div>
+              </Tabs.Content>
+
+              <Tabs.Content value="ubo" className="focus-visible:outline-none">
+                {/* UBO gets the full canvas width on its own tab so the
+               graph + relationship list have room to breathe. */}
+                <UBOPanel caseId={caseId} />
+              </Tabs.Content>
+
+              <Tabs.Content value="decision" className="focus-visible:outline-none">
+                <DecisionZone
+                  caseId={caseId}
+                  onToggleEvidence={() => setEvidenceOpen((v) => !v)}
+                  evidenceOpen={evidenceOpen}
+                />
+              </Tabs.Content>
+
+              <Tabs.Content value="upload" className="focus-visible:outline-none">
+                <section className="space-y-3">
+                  <DocumentUploadZone caseId={caseId} onUploadComplete={handleUploadComplete} />
+                </section>
+              </Tabs.Content>
+            </Tabs.Root>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Story 7.5 — UndoPill pins itself bottom-center while the

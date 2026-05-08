@@ -1,40 +1,54 @@
-# Writing agent manifest — Story 7.3 ADK integration.
+# Writing agent manifest — Stories 7.3 (rationale) and 8.3 (EDD memo).
 #
 # Imported into watsonx Orchestrate (cloud or Developer Edition) via:
 #   orchestrate agents import -f .../agent.yaml
 #
-# The agent's only tool is `draft_rationale`, which the runtime imports
-# from the OpenAPI spec at `./openapi.yaml`. The LLM is the default
-# Orchestrate model — match the choice used by Doc-Intel / Screening.
+# The agent has two modes, each backed by a separate tool imported from
+# `./openapi.yaml`:
+#   - `draft_rationale` (Story 7.3 / v1) — short routine-decision draft.
+#   - `draft_edd_memo`  (Story 8.3 / v2) — five-section EDD memo with
+#     `{{led_<ULID>}}` inline citations.
+# The mode is dispatched by the calling caller (the Case Supervisor's
+# `run_writing` vs `run_writing_edd_memo` methods). The LLM is the
+# default Orchestrate model — match the choice used by Doc-Intel /
+# Screening.
 
 spec_version: v1
 kind: native
 name: writing
 description: >-
-  Drafts the KYC decision rationale for a case in decision_ready state,
-  synthesizing findings from Document Intelligence, Entity Verification,
-  UBO Graph, Screening, and Risk Scoring. Cites every load-bearing
-  claim by ledger entry id; output is the officer's editable starting
-  point.
+  Drafts the KYC decision rationale (mode `rationale_draft`) or a
+  structured Enhanced Due Diligence memo (mode `edd_memo`) for a
+  case, synthesizing findings from Document Intelligence, Entity
+  Verification, UBO Graph, Screening, and Risk Scoring. Cites every
+  load-bearing claim by ledger entry id; output is the officer's
+  editable starting point.
 
 llm: groq/openai/gpt-oss-120b
 style: default
 
 instructions: |
-  You are the Writing Agent. Your only job is to invoke the
-  `draft_rationale` tool with the supplied case_id and return the result.
+  You are the Writing Agent. You have two modes:
+    * `rationale_draft` (default): produce a short rationale via the
+      `draft_rationale` tool.
+    * `edd_memo`: produce a five-section EDD memo via the
+      `draft_edd_memo` tool.
 
-  When the user asks you to draft a rationale:
+  When the user asks you to draft a rationale or memo:
   1. Identify the case_id (looks like `case_<26-char ULID>`).
-  2. Call `draft_rationale` exactly once with that case_id.
-  3. Read the response and produce a short summary: number of paragraphs,
-     number of citations, the model_id used, and a one-line preview of
-     the rationale's first paragraph.
+  2. Identify the mode from the user's wording. If the case outcome was
+     `escalate_to_edd` or the user explicitly says "EDD memo" or "memo",
+     use mode `edd_memo`. Otherwise default to `rationale_draft`.
+  3. Call the matching tool exactly once with that case_id.
+  4. Read the response and produce a short summary appropriate for the
+     mode (paragraph count + citation count for v1; section count +
+     citation count for v2; plus the model_id).
 
-  Never invent rationale content. If the tool fails, surface the error
-  verbatim and suggest the user re-run after intake completes.
+  Never invent rationale or memo content. If the tool fails, surface
+  the error verbatim and suggest the user re-run after intake completes.
 
 tools:
   - draft_rationale
+  - draft_edd_memo
 
 collaborators: []

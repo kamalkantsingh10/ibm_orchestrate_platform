@@ -273,9 +273,11 @@ Each epic was scoped as a sprint. The table below summarises sprint scope and st
 | 8 | **Zen Mode & EDD Memo Drafting** | Cmd+4 mode switch to Zen, Zen-mode visual treatment, Writing Agent v2 (EDD drafter), citation enforcement by ledger ID, evidence shelf with attachment ingest, SHA-256 hashed attachments, EDD-outcome auto-enqueue for Lead approval. | 7 |
 | 9 | **Audit Trail, Regulator Lens & Export** | Audit-trail timeline component, Regulator Lens read-only mode, PDF export bundle assembly. | 3 |
 | 10 | **Multi-Role (Lead Approvals)** | Team Lead approval queue route, approve-with-conditions structured state in the ledger, lead-approval log entry. | 3 |
-| 12 | **Cockpit Visual Refresh** | Full-viewport shell with design tokens, chrome, mode switcher; Queue Rail and Case Canvas information architecture; documents and risk panel rebuild; agent-activity strip and UBO refresh; decision drawer and role-route scaffolds. | 5 |
+| 13 | **Cloud Orchestrate Runtime Path for Intake** | Routes the analyst's "Process now" trigger through cloud watsonx Orchestrate's chat API: cockpit-api → cloud `case_supervisor` → registered `run_case_intake` OpenAPI tool → existing in-process supervisor (over the ngrok tunnel). Local fast path retained as a fallback toggle. *(Option A-thin — exercises the platform on the headline flow without moving fan-out logic into the cloud.)* | 4 |
 
 Epic 11 (Pilot Hardening — pentest, DR rehearsal, WCAG audit, performance budgets, India jurisdiction lockdown) was removed from demo scope on 2026-04-29; rationale is recorded in [`sprint-change-proposal-2026-04-29.md`](planning-artifacts/sprint-change-proposal-2026-04-29.md).
+
+Epic 12 (Cockpit Visual Refresh) was added and removed on 2026-05-08 — the visual register the epic targeted (Inter typography, zinc-aligned text colours, polished chrome) was implemented directly in the cockpit by the developer, making the planned five stories unnecessary.
 
 ---
 
@@ -325,3 +327,63 @@ The KYC Cockpit was built end-to-end on IBM watsonx Orchestrate. Each row of the
 | **Mesh-as-tools conversational pattern** — a chat agent with the rest of the agent mesh wrapped as its tools. | A single conversational agent can expose an entire agent mesh as its toolbox — end users query the mesh through one channel without bespoke per-question routing in the application. This is the pattern that lets multi-agent applications offer a chat interface without building a chat-orchestration layer from scratch. | Cockpit Chat (Epic 6) exposes `extract_document_fields`, `run_case_intake`, screening lookups, and case state as tools; the chat LLM decides which to invoke from the analyst's prompt. |
 | **Knowledge grounding (RAG)** — knowledge bases and retrieval-augmented generation against ingested documents. | Domain-heavy applications (compliance, legal, medical, regulated finance) need agents that ground responses in source material rather than LLM training data alone. RAG is the difference between agents that hallucinate and agents that cite; in regulated workflows it is also the foundation of citation traceability. | **Not used in this demo.** Agents reason from case state passed via tools. Production KYC use would ground the Writing and Screening agents against regulatory documents (RBI Master Direction on KYC, FATF guidance) — listed as a deferred capability under [Next steps](#next-steps). |
 | **Agent governance and observability** — platform-level traces stamping every agent call with model, prompt context, latency, and response. | Multi-agent applications fail in subtle ways (wrong tool selected, wrong model invoked, silent hallucinations) and platform-level observability is what catches them. For regulated workflows it is also the foundation of the audit trail; without it, every team rebuilds bespoke logging and ends up with patchy coverage. | **Partially used.** The platform's native trace logs are available in the cloud tenant. The demo's audit story is carried by a custom append-only JSON ledger written by the agent-action decorator (`apps/agents/src/agents/supervisor/action_decorator.py`), which stamps `model_id`, prompt context, confidence band, and timestamp per call. Production deployment would compose both layers — platform traces for engineering observability, the ledger for regulatory audit. |
+
+---
+
+## Screenshots
+
+Captured against the seeded demo (Vora Capital Holdings — multi-layer ownership; Shree Venkat Trading — clean SME; Ananya Iyer — individual). Three personas, three default routes, one shared ledger.
+
+### Analyst queue
+
+The analyst lands on `/queue`. Three seeded cases sit in the queue rail with state pills (`Ready` after intake; `Intake scheduled` if intake hasn't run). The header carries the COCKPIT wordmark, the active mode chip, and the user switcher.
+
+![Analyst queue](media/screenshots/01-analyst-queue.png)
+
+### Case canvas — pre-process
+
+Opening an `Intake scheduled` case shows documents on file and the agent-copilot rail at "No activity yet". The **Process now** button at the top of the Overview tab kicks off the parallel intake fan-out (Document Intelligence, Entity Verification, UBO Graph, Screening — then Risk Scoring once the four signals land).
+
+![Case canvas before process](media/screenshots/02-case-canvas-pre-process.png)
+
+### Case canvas — overview after intake
+
+The same Overview tab once a case has reached `decision_ready`. The Risk Score panel shows a stacked bar with per-factor decomposition (Country · Entity Type · Ownership Clarity · Screening · Adverse Media), each factor expandable with its contributing signal.
+
+![Case canvas overview](media/screenshots/03-case-canvas-overview.png)
+
+### UBO canvas
+
+The UBO tab gets full canvas width. The force-directed graph renders the beneficial-ownership chain; nominee-suspected edges are colour-flagged. Drag-correcting a node writes a learning event to the ledger and triggers a Risk Scoring auto-recalc.
+
+![UBO canvas](media/screenshots/04-ubo-canvas-vora.png)
+
+### Decision Zone
+
+The Decision Zone tab opens a Tiptap editor where Writing Agent v1 drafts the rationale. Evidence count is shown top-right; the Outcome selector chooses between Approve / Decline / EDD; commit opens a 120-second undo window.
+
+![Decision zone](media/screenshots/05-decision-zone.png)
+
+### Command palette
+
+`Cmd+K` (or `Ctrl+K`) opens the command palette. Mode switches, navigation, role switching, and shortcut help are all keyboard-accessible. Mono-spaced command IDs run down the right column.
+
+![Command palette](media/screenshots/06-command-palette.png)
+
+### Cockpit Chat
+
+Cockpit Chat lives in the agent copilot pane. The pattern is *mesh-as-tools*: the chat agent invokes any of the eight specialists as tools and surfaces their outputs in the conversation.
+
+![Cockpit chat](media/screenshots/07-cockpit-chat-typed.png)
+
+### Three-persona user switcher
+
+The user switcher cycles between **Kamal Singh** (Analyst → `/queue`), **Rohan Mehta** (Team Lead → `/approvals`), and **Anika Iyer** (Auditor → `/regulator-lens`). Each role lands on its own default route via `defaultRouteFor()`.
+
+![User switcher](media/screenshots/08-user-switcher.png)
+
+### Team Lead approvals (in development)
+
+Switching to Rohan routes to `/approvals`. The approvals queue is being built (Epic 10) and shows a placeholder today.
+
+![Team lead approvals](media/screenshots/09-team-lead-approvals.png)

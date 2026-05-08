@@ -1,34 +1,39 @@
-"""Writing-agent contracts — Story 7.3.
+"""Writing-agent contracts — Stories 7.3 and 8.3.
 
-The Writing agent runs after intake completes (case is in
-``decision_ready``). It synthesizes a 2–4 paragraph rationale draft from
-the latest typed outputs of the upstream agents (Document Intelligence,
-Entity Verification, UBO Graph, Screening, Risk Scoring) and emits two
-parallel surfaces:
+Story 7.3 ships v1: a 2–4 paragraph rationale drafter for routine
+decisions. Story 8.3 ships v2: a structured EDD memo with five named
+sections and inline ``{{led_<ULID>}}`` citation tokens.
 
-* ``html`` — Tiptap-renderable HTML with citation tokens already wrapped
-  as ``<span data-ledger-id="led_…" class="citation-token">…</span>``
-  so Story 7.1's Decision Zone editor can pre-load it without further
-  transformation.
-* ``cited_claims`` — the structured (claim_text, ledger_id) pairs the
-  LLM emitted, kept on the contract for downstream analytics
-  (edit-rate, citation density). The bank-buyer scope tracked these;
-  the demo persists them but does not surface them.
+Both versions share the agent module, registry, and decorator wrapping;
+they differ in prompt template + output schema. v1 emits
+``DraftedRationale`` (Tiptap HTML + cited_claims). v2 emits
+``EddMemoOutput`` (five plain-text sections + a flat citations list).
 
 Citation hallucination defense is layered: the prompt instructs the
-LLM to cite only from a supplied ``ledger_ids`` map, and the cockpit-ui
-(Story 7.1) re-validates every citation against the case ledger at
-commit time. Server-side, the wrapper trusts ``cited_claims`` as-is.
+LLM to cite only from a supplied ``ledger_ids`` map; the v2 schema
+validator (this module) enforces *structural* consistency between
+inline tokens and the ``citations`` list; the cockpit-ui (Story 7.1)
+re-validates citations against the live ledger at commit time.
+Story 8.4 adds runtime enforcement that every cited ledger id resolves
+to a real entry on the case.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from contracts.cases import CaseId
 from contracts.ledger import LedgerEntryId
+
+
+class CitationStructureError(ValueError):
+    """Raised when an EDD memo's inline ``{{led_<ULID>}}`` tokens do
+    not match the ``citations`` list. Story 8.3 / AC #4. Internal
+    consistency only — Story 8.4 owns ledger-existence checks.
+    """
 
 
 class CitedClaim(BaseModel):
@@ -73,3 +78,110 @@ class WritingAgentInput(BaseModel):
     model_config = {"frozen": True}
 
     case_id: CaseId
+
+
+# ─── Story 8.3 — EDD memo (v2) ────────────────────────────────────────────
+
+# `led_<26-char Crockford-Base32>`. Match the format Story 3.3 codifies
+# in `LedgerEntryId`; we re-derive the regex here because the tokens are
+# embedded in free text rather than top-level fields.
+_LEDGER_ID_INNER = r"led_[0-9A-HJKMNP-TV-Z]{26}"
+_LEDGER_TOKEN_RE = re.compile(r"\{\{(" + _LEDGER_ID_INNER + r")\}\}")
+
+
+def _extract_inline_tokens(text: str) -> set[str]:
+    """Return the set of ``led_<ULID>`` ids referenced by inline
+    ``{{led_<ULID>}}`` tokens in ``text``."""
+    return {match.group(1) for match in _LEDGER_TOKEN_RE.finditer(text)}
+
+
+class EddMemoOutput(BaseModel):
+    """The Writing agent's v2 output — a structured EDD narrative memo
+    with five named sections. Story 8.3 / AC #3.
+
+    Inline citations follow the ``{{led_<ULID>}}`` token format inside
+    each section's text. The ``citations`` list is the flat union of
+    every distinct token referenced anywhere in the memo. The
+    ``model_validator`` on this class enforces that the two surfaces
+    agree (AC #4).
+
+    The output is plain text by design: cockpit-ui renders the sections
+    as Tiptap headings + paragraphs and rewrites ``{{led_<ULID>}}``
+    tokens into ``<span data-ledger-id="led_…">`` chips at render time
+    (Story 8.3 / AC #7).
+    """
+
+    model_config = {"frozen": True}
+
+    case_id: CaseId
+    executive_summary: str = Field(min_length=1)
+    findings: str = Field(min_length=1)
+    risk_factors: str = Field(min_length=1)
+    mitigating_factors: str = Field(min_length=1)
+    recommendation: str = Field(min_length=1)
+    citations: list[LedgerEntryId] = Field(default_factory=list)
+    model_id: str = Field(min_length=1)
+    prompt_template_id: Literal["edd_memo_v1"] = "edd_memo_v1"
+
+    @model_validator(mode="after")
+    def _enforce_inline_citations_match(self) -> EddMemoOutput:
+        """Story 8.3 / AC #4 — every inline ``{{led_<ULID>}}`` token in
+        any of the five section fields must appear in ``citations``,
+        and every entry in ``citations`` must be referenced by at least
+        one inline token. Mismatch raises ``CitationStructureError``.
+        """
+        inline_ids: set[str] = set()
+        for section_text in (
+            self.executive_summary,
+            self.findings,
+            self.risk_factors,
+            self.mitigating_factors,
+            self.recommendation,
+        ):
+            inline_ids.update(_extract_inline_tokens(section_text))
+        listed = set(self.citations)
+        unlisted = inline_ids - listed
+        if unlisted:
+            raise CitationStructureError(
+                "Inline citation tokens missing from `citations` list: " + ", ".join(sorted(unlisted))
+            )
+        unreferenced = listed - inline_ids
+        if unreferenced:
+            raise CitationStructureError(
+                "Entries in `citations` list never appear inline: " + ", ".join(sorted(unreferenced))
+            )
+        return self
+
+
+class EddMemoSections(BaseModel):
+    """Internal Pydantic model returned by an LLM-shaped ``WritingLLM``
+    for the ``edd_memo`` mode. The agent assembles the final
+    ``EddMemoOutput`` (with ``case_id``, ``citations`` derived from
+    inline tokens, etc.) from this raw shape.
+    """
+
+    model_config = {"frozen": True}
+
+    executive_summary: str = Field(min_length=1)
+    findings: str = Field(min_length=1)
+    risk_factors: str = Field(min_length=1)
+    mitigating_factors: str = Field(min_length=1)
+    recommendation: str = Field(min_length=1)
+
+
+def derive_citations_from_sections(sections: EddMemoSections) -> list[str]:
+    """Walk every section and return the sorted list of distinct ledger
+    ids referenced by inline ``{{led_<ULID>}}`` tokens. The agent feeds
+    this into ``EddMemoOutput.citations`` so the model_validator's
+    structural check is by construction satisfied for well-formed LLM
+    output."""
+    found: set[str] = set()
+    for text in (
+        sections.executive_summary,
+        sections.findings,
+        sections.risk_factors,
+        sections.mitigating_factors,
+        sections.recommendation,
+    ):
+        found.update(_extract_inline_tokens(text))
+    return sorted(found)

@@ -32,6 +32,8 @@ from contracts.cases import (
 )
 from contracts.confidence import THRESHOLDS, ConfidenceBand, to_band
 from contracts.decision import (
+    BrokenCitation,
+    BrokenCitationsErrorBody,
     CommitDecisionRequest,
     CommitDecisionResponse,
     Decision,
@@ -58,6 +60,8 @@ from contracts.ledger import (
     ActorType,
     CockpitChatToolLedgerPayload,
     DecisionSealedPayload,
+    EscalatedForApprovalPayload,
+    EvidenceAttachedPayload,
     LedgerEntry,
     LedgerEntryId,
     OfficerDecisionCommittedPayload,
@@ -117,9 +121,13 @@ from contracts.users import (
     find_user_by_id,
 )
 from contracts.writing import (
+    CitationStructureError,
     CitedClaim,
     DraftedRationale,
+    EddMemoOutput,
+    EddMemoSections,
     WritingAgentInput,
+    derive_citations_from_sections,
 )
 
 __all__ = [
@@ -133,6 +141,8 @@ __all__ = [
     "AgentMeshAgentState",
     "AgentMeshSnapshot",
     "AgentSlug",
+    "BrokenCitation",
+    "BrokenCitationsErrorBody",
     "Case",
     "CaseId",
     "CaseIntakeOutcome",
@@ -146,6 +156,7 @@ __all__ = [
     "CockpitChatToolLedgerPayload",
     "CaseState",
     "CaseStateTransitionError",
+    "CitationStructureError",
     "ConfidenceBand",
     "CitedClaim",
     "ConfidenceWithRationale",
@@ -155,6 +166,8 @@ __all__ = [
     "DocumentIntelligenceInput",
     "DocumentIntelligenceOutput",
     "DraftedRationale",
+    "EddMemoOutput",
+    "EddMemoSections",
     "EdgeKind",
     "EntityVerificationInput",
     "EntityVerificationResult",
@@ -174,6 +187,8 @@ __all__ = [
     "MCAShareholder",
     "MCAStatus",
     "NomineeFlag",
+    "EscalatedForApprovalPayload",
+    "EvidenceAttachedPayload",
     "OfficerDecisionUndonePayload",
     "PromptHash",
     "Provenance",
@@ -210,6 +225,7 @@ __all__ = [
     "VORA_CAPITAL_ID",
     "WritingAgentInput",
     "assert_transition",
+    "derive_citations_from_sections",
     "find_user_by_id",
     "get_demo_case_fixtures",
     "is_valid_case_id",

@@ -7,7 +7,9 @@
 # scope: DEMO (re-scoped 2026-04-29 — see Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md)
 #
 # Demo scope: 11 epics, 69 stories. Epic 11 cut entirely; Epic 12 (Cockpit Visual
-# Refresh, 5 stories) added 2026-05-08. Epics 1, 2, 3, 7, 9, 10 substantially
+# Refresh, 5 stories) added then removed 2026-05-08 after the visual register was
+# implemented directly in the cockpit. Epic 13 (Cloud Orchestrate Runtime Path for
+# Intake, 4 stories) added 2026-05-08. Epics 1, 2, 3, 7, 9, 10 substantially
 # gutted to remove enterprise infrastructure (OIDC, multi-tenant, HSM-backed
 # cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest, DR
 # rehearsal, WCAG audit, performance budgets). UI fidelity preserved across
@@ -46,7 +48,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-27
-last_updated: 2026-05-08  # Epic 7: all 9 stories implemented (review); Epic 12 added (5 stories, backlog)
+last_updated: 2026-05-08  # Epic 7 in review; Epic 12 added then removed; Epic 13 (4 stories, backlog) added — cloud Orchestrate runtime path for intake
 project: ibm_orchestrate_platform
 project_key: NOKEY
 tracking_system: file-system
@@ -153,14 +155,14 @@ development_status:
   # ────────────────────────────────────────────────────────────────────
   # Epic 8 — Zen Mode & EDD Memo Drafting (7 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-8: backlog
-  8-1-cmd-4-mode-switch-to-zen: backlog
-  8-2-zen-mode-visual-treatment: backlog
-  8-3-writing-agent-v2-edd-memo-drafter: backlog
-  8-4-citation-by-ledger-id-enforcement-in-writing-output: backlog
-  8-5-evidenceshelf-with-attachment-ingest-ui: backlog                  # KEPT (was candidate cut #10)
-  8-6-evidence-attachment-with-sha-256-hash: backlog                    # KEPT (was candidate cut #11)
-  8-7-edd-outcome-auto-enqueue-for-lead-approval: backlog               # KEPT (was candidate cut #12)
+  epic-8: in-progress                                                    # transitioned 2026-05-08
+  8-1-cmd-4-mode-switch-to-zen: review                                    # impl 2026-05-08 (Amelia)
+  8-2-zen-mode-visual-treatment: review                                   # impl 2026-05-08 (Amelia)
+  8-3-writing-agent-v2-edd-memo-drafter: review                            # impl 2026-05-08 (Amelia)
+  8-4-citation-by-ledger-id-enforcement-in-writing-output: review          # impl 2026-05-08 (Amelia)
+  8-5-evidenceshelf-with-attachment-ingest-ui: review                   # impl 2026-05-08 (Amelia); KEPT (was candidate cut #10)
+  8-6-evidence-attachment-with-sha-256-hash: review                     # impl 2026-05-08 (Amelia); KEPT (was candidate cut #11)
+  8-7-edd-outcome-auto-enqueue-for-lead-approval: review                # impl 2026-05-08 (Amelia); KEPT (was candidate cut #12)
   epic-8-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
@@ -188,27 +190,33 @@ development_status:
   # preserved in Documentation/planning-artifacts/epics.md for revival.
 
   # ────────────────────────────────────────────────────────────────────
-  # Epic 12 — Cockpit Visual Refresh (5 stories, added 2026-05-08)
+  # Epic 12 — Cockpit Visual Refresh — REMOVED 2026-05-08
   # ────────────────────────────────────────────────────────────────────
-  # Tier-1 private-bank visual refresh — full-viewport workstation chrome,
-  # tabular density, type-led hierarchy, document-grade case canvas. No
-  # functional/backend/agent changes. Draft epic doc:
-  # Documentation/planning-artifacts/epic-12-cockpit-visual-refresh.md
-  # Sequencing notes (from epic-12-cockpit-visual-refresh.md risks + story-level deps):
-  #   - 12-1 is the foundation; ship first, alone. Token migration aliases keep
-  #     in-flight Epic 7 work compiling against old blues for one release window.
-  #   - 12-2 reflows cases.$caseId.tsx and collides with Epic 7 canvas-touching
-  #     stories (7-1 DecisionZone position, 7-2 typography shift, 7-8 evidence
-  #     shelf). Gate on those reaching `review` before merging 12-2.
-  #   - 12-3 and 12-4 depend on 12-2's section frames, so they sit behind the
-  #     same Epic 7 gate. 12-4's agent-strip portion is independent of 12-2 if
-  #     a future split is ever wanted.
-  #   - 12-5's decision drawer is the new home for Epic 7's DecisionZone.
-  #     Defer until Epic 7 is `done` to avoid re-homing 7-1 mid-flight.
-  epic-12: backlog
-  12-1-full-viewport-shell-tokens-chrome-mode-switcher: ready-for-dev    # foundation; full-viewport shell, design tokens, chrome, mode switcher
-  12-2-queue-rail-and-case-canvas-ia: ready-for-dev                      # blocked-by: 12-1 + Epic 7 canvas-touching stories (7-1, 7-2, 7-8) at `review`
-  12-3-documents-and-risk-panel-rebuild: ready-for-dev                   # blocked-by: 12-1 + 12-2 (panels live inside section frames from 12-2)
-  12-4-agent-activity-strip-and-ubo-refresh: ready-for-dev               # blocked-by: 12-1 + 12-2 (UBO rebuild lives in a 12-2 section frame; agent strip needs 12-1's agent-rail grid column)
-  12-5-decision-drawer-and-role-route-scaffolds: ready-for-dev           # blocked-by: 12-1 + 12-2 + epic-7 `done` (drawer is the new home for 7-1 DecisionZone)
-  epic-12-retrospective: optional
+  # Added 2026-05-08, removed the same day after the developer implemented
+  # the visual register (Inter typography, zinc-aligned text, polished
+  # chrome) directly in the cockpit. Detail files removed from
+  # Documentation/. No tracking entries below.
+
+  # ────────────────────────────────────────────────────────────────────
+  # Epic 13 — Cloud Orchestrate Runtime Path for Intake (4 stories, added 2026-05-08)
+  # ────────────────────────────────────────────────────────────────────
+  # Routes "Process now" through cloud watsonx Orchestrate's chat API.
+  # cockpit-api → cloud `case_supervisor` agent → invokes the registered
+  # `run_case_intake` OpenAPI tool which targets cockpit-api's
+  # `_intake-impl` endpoint (existing supervisor body) over the ngrok
+  # tunnel. Outcome parsed back from the tool-call result. Local fast
+  # path retained as a fallback. See Documentation/planning-artifacts/epics.md
+  # for full Given/When/Then.
+  # Sequencing:
+  #   - 13-1 (Orchestrate REST client + IAM auth) is the foundation;
+  #     no other story can call cloud without it.
+  #   - 13-2 (tool route split) is independent of 13-1 — can ship in
+  #     parallel; needs make adk-register run after merge.
+  #   - 13-3 (cloud-routed Process now) depends on both 13-1 and 13-2.
+  #   - 13-4 (env toggle + fallback + UI affordance) depends on 13-3.
+  epic-13: backlog
+  13-1-watsonx-orchestrate-rest-client-iam-auth: backlog                       # foundation; OrchestrateClient + IAM token caching
+  13-2-tool-route-split-internal-intake-impl-external-intake-router: backlog   # rename existing route + re-register cloud tool target
+  13-3-cloud-routed-process-now-tool-call-result-parsing: backlog              # blocked-by: 13-1 + 13-2
+  13-4-cloud-mode-env-toggle-fallback-ui-latency-affordance: backlog           # blocked-by: 13-3
+  epic-13-retrospective: optional

@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from cockpit_api.config import get_settings
 
@@ -29,7 +30,14 @@ def _ensure_engine() -> async_sessionmaker[AsyncSession]:
     global _engine, _sessionmaker
     if _sessionmaker is None:
         settings = get_settings()
-        _engine = create_async_engine(settings.database_url, future=True)
+        # SQLite: NullPool so `make demo-fresh` (which deletes and recreates
+        # the .db file) doesn't leave the pool holding FDs to the old inode
+        # — those connections subsequently raise "attempt to write a
+        # readonly database" on the recreated file.
+        engine_kwargs: dict[str, object] = {"future": True}
+        if settings.database_url.startswith("sqlite"):
+            engine_kwargs["poolclass"] = NullPool
+        _engine = create_async_engine(settings.database_url, **engine_kwargs)
         _sessionmaker = async_sessionmaker(_engine, expire_on_commit=False, class_=AsyncSession)
     return _sessionmaker
 

@@ -285,16 +285,12 @@ async def _record_success(
         recorded_at=datetime.now(UTC),
     )
     await get_ledger_writer().append(entry)
-    # Story 4.6 — fan-out an SSE event so the cockpit-ui invalidates
-    # `['cases', caseId, 'agent-mesh-state']`. Best-effort; registry
-    # failures are logged but do not abort the agent path.
-    await publish_safe(
-        case_id,
-        SseEvent(
-            event="agent.state_changed",
-            data={"case_id": case_id, "agent_slug": agent_id, "state": "complete"},
-        ),
-    )
+    # Story 4.6 SSE fan-out for "complete" intentionally lives in the
+    # supervisor (case_supervisor.run_intake), not here — it must fire
+    # AFTER IntakeRepo.upsert so the rail's "Done" pill never lands
+    # before the panel data is queryable. The decorator only owns the
+    # ledger write. Failures still publish here (immediate, no
+    # downstream persistence to wait on).
 
 
 async def _record_failure(

@@ -24,6 +24,7 @@ function press(key: string, modifiers: KeyboardEventInit = {}): void {
 
 describe('useGlobalShortcuts', () => {
   beforeEach(() => {
+    window.history.replaceState({}, '', '/');
     useMode.getState().setMode('investigation');
     usePalette.getState().setOpen(false);
     toastMock.mockReset();
@@ -92,6 +93,28 @@ describe('useGlobalShortcuts', () => {
     act(() => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: '1', metaKey: true, bubbles: true }));
     });
+    expect(useMode.getState().mode).toBe('zen');
+  });
+
+  it('Cmd+4 on a case route switches to Zen (Story 8.1)', () => {
+    window.history.replaceState({}, '', '/cases/case-042');
+    render(<Harness />);
+    press('4', { metaKey: true });
+    expect(useMode.getState().mode).toBe('zen');
+  });
+
+  it('Cmd+4 off the case canvas toasts and does NOT switch mode (Story 8.1 AC #4)', () => {
+    window.history.replaceState({}, '', '/queue');
+    render(<Harness />);
+    press('4', { metaKey: true });
+    expect(useMode.getState().mode).toBe('investigation');
+    expect(toastMock).toHaveBeenCalled();
+  });
+
+  it('Ctrl+4 on a case route also switches to Zen (non-Mac binding)', () => {
+    window.history.replaceState({}, '', '/cases/case-042');
+    render(<Harness />);
+    press('4', { ctrlKey: true });
     expect(useMode.getState().mode).toBe('zen');
   });
 

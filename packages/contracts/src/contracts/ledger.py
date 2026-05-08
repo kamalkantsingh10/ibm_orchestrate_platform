@@ -106,6 +106,45 @@ class DecisionSealedPayload(BaseModel):
     outcome: Literal["approve", "decline", "approve_with_conditions", "escalate_to_edd"]
 
 
+class EscalatedForApprovalPayload(BaseModel):
+    """Typed ``LedgerEntry.payload`` arm for Story 8.7's Lead-approval
+    auto-enqueue. Written when a commit's outcome is ``escalate_to_edd``
+    or ``approve_with_conditions`` on a high-risk case; the case
+    transitions to ``pending_lead_approval`` in the same transaction.
+    """
+
+    model_config = {"frozen": True}
+
+    kind: Literal["case_escalated_for_approval"] = "case_escalated_for_approval"
+    decision_id: str = Field(min_length=1)
+    outcome: Literal["approve_with_conditions", "escalate_to_edd"]
+    prior_state: Literal["decision_ready"]
+    new_state: Literal["pending_lead_approval"]
+    escalation_reason: Literal["edd", "high_risk_conditions"]
+
+
+class EvidenceAttachedPayload(BaseModel):
+    """Typed ``LedgerEntry.payload`` arm for officer-attached evidence —
+    Story 8.6.
+
+    Demo simplification: no Ed25519 signature (Story 7.4 bank-buyer
+    primitive cut). Integrity anchor is the SHA-256 of the file
+    contents recorded here; tampering with the file post-attachment
+    would invalidate the hash without rewriting the ledger entry.
+
+    ``ingest_method`` distinguishes drag-drop, clipboard paste, and
+    email-body paste so audit can reason about provenance later.
+    """
+
+    model_config = {"frozen": True}
+
+    kind: Literal["case_evidence_attached"] = "case_evidence_attached"
+    filename: str = Field(min_length=1, max_length=200)
+    sha256: str = Field(min_length=64, max_length=64)
+    size_bytes: int = Field(ge=0)
+    ingest_method: Literal["drop", "clipboard", "email_paste", "unspecified"] = "unspecified"
+
+
 class LearningEventLedgerPayload(BaseModel):
     """Typed ``LedgerEntry.payload`` arm for officer-originated UBO corrections.
 
@@ -189,6 +228,8 @@ class LedgerEntry(BaseModel):
         | OfficerDecisionUndonePayload
         | OfficerDecisionCommittedPayload
         | DecisionSealedPayload
+        | EvidenceAttachedPayload
+        | EscalatedForApprovalPayload
         | dict[str, Any]
     ) = Field(default_factory=dict, union_mode="left_to_right")
     recorded_at: datetime

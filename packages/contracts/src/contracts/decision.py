@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -97,3 +98,31 @@ class Decision(BaseModel):
     sealed_at: datetime | None = None
     sealed_ledger_entry_id: LedgerEntryId | None = None
     committed_ledger_entry_id: LedgerEntryId
+
+
+class BrokenCitation(BaseModel):
+    """One unresolved citation found by the commit-time validator —
+    Story 8.4 / AC #1.
+
+    ``token`` is the ledger ULID extracted from the rationale. ``reason``
+    distinguishes the failure mode so the cockpit-ui can surface
+    different copy or remediations:
+
+    * ``not_found`` — no ledger entry with this id exists at all
+    * ``wrong_case`` — entry exists but belongs to a different case_id
+    """
+
+    model_config = {"frozen": True}
+
+    token: LedgerEntryId
+    reason: Literal["not_found", "wrong_case"]
+
+
+class BrokenCitationsErrorBody(BaseModel):
+    """422 response body when the commit endpoint refuses a decision
+    because at least one citation is unresolved. Story 8.4 / AC #2."""
+
+    model_config = {"frozen": True}
+
+    error_code: Literal["broken_citations"] = "broken_citations"
+    broken: list[BrokenCitation]

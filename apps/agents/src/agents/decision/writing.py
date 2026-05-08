@@ -26,7 +26,13 @@ from contracts.reasoning_trace import ConfidenceWithRationale, ReasoningTrace
 from contracts.risk import RiskScore
 from contracts.screening import ScreeningAgentOutput
 from contracts.ubo import UBOGraph
-from contracts.writing import CitedClaim, DraftedRationale, WritingAgentInput
+from contracts.writing import (
+    CitedClaim,
+    DraftedRationale,
+    EddMemoOutput,
+    WritingAgentInput,
+    derive_citations_from_sections,
+)
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from agents.adapters.writing import WritingLLM, get_default_writing_llm
@@ -202,9 +208,142 @@ def _build_trace(
     )
 
 
+# ─── Story 8.3 — Writing v2: EDD memo drafter ────────────────────────────────
+
+
+@agent_action(
+    agent_id="writing",
+    model_id="placeholder",  # overwritten via set_runtime_model_id at call time
+    prompt_template_id="edd_memo_v1",
+)
+async def writing_edd_memo(
+    input: WritingAgentInput,
+    *,
+    case: Case,
+    doc_intel: DocumentIntelligenceOutput,
+    entity_verification: EntityVerificationResult | None,
+    ubo: UBOGraph | None,
+    screening: ScreeningAgentOutput | None,
+    risk: RiskScore | None,
+    ledger_ids: dict[str, str],
+    llm: WritingLLM | None = None,
+) -> EddMemoOutput:
+    """Story 8.3 — drafts a structured EDD narrative memo (five sections,
+    inline ``{{led_<ULID>}}`` citations). The Case Supervisor invokes
+    this on ``escalate_to_edd`` outcomes (Story 7.9 wires the trigger
+    via the decision-service post-commit path)."""
+    resolved = llm if llm is not None else get_default_writing_llm()
+    set_runtime_model_id(resolved.model_id)
+
+    rendered_prompt = _render_edd_memo_prompt_v1(
+        case=case,
+        doc_intel=doc_intel,
+        entity_verification=entity_verification,
+        ubo=ubo,
+        screening=screening,
+        risk=risk,
+        ledger_ids=ledger_ids,
+    )
+    sections = await resolved.draft_edd_memo(rendered_prompt=rendered_prompt)
+    citations = derive_citations_from_sections(sections)
+    set_runtime_reasoning_trace(_build_edd_trace(sections, ledger_ids, citations))
+
+    return EddMemoOutput(
+        case_id=input.case_id,
+        executive_summary=sections.executive_summary,
+        findings=sections.findings,
+        risk_factors=sections.risk_factors,
+        mitigating_factors=sections.mitigating_factors,
+        recommendation=sections.recommendation,
+        citations=citations,
+        model_id=resolved.model_id,
+        prompt_template_id="edd_memo_v1",
+    )
+
+
+def _render_edd_memo_prompt_v1(
+    *,
+    case: Case,
+    doc_intel: DocumentIntelligenceOutput,
+    entity_verification: EntityVerificationResult | None,
+    ubo: UBOGraph | None,
+    screening: ScreeningAgentOutput | None,
+    risk: RiskScore | None,
+    ledger_ids: dict[str, str],
+) -> str:
+    template = _ENV.get_template("edd_memo_v1.j2")
+    entity_status = entity_verification.mca_status if entity_verification else None
+    ubo_summary: str | None
+    if ubo is not None:
+        nominee_count = sum(1 for e in ubo.edges if getattr(e, "nominee_flag", None) == "suspected")
+        ubo_summary = f"{len(ubo.nodes)} nodes, {nominee_count} nominee-suspected edges"
+    else:
+        ubo_summary = None
+    screening_summary: str | None
+    if screening is not None:
+        open_count = sum(1 for h in screening.hits if h.disposition == "open")
+        dismissed = sum(1 for h in screening.hits if h.disposition == "dismissed_by_agent")
+        screening_summary = (
+            f"{open_count} open hits, {dismissed} auto-dismissed across {screening.subjects_screened} subject(s)"
+        )
+    else:
+        screening_summary = None
+    risk_summary: str | None
+    if risk is not None:
+        component_summary = ", ".join(f"{c.name} {c.contribution}" for c in risk.components[:3])
+        risk_summary = f"total {risk.total}/100, band {risk.band}; {component_summary} dominate"
+    else:
+        risk_summary = None
+
+    return template.render(
+        case=case.model_dump(mode="json"),
+        extracted_fields=doc_intel.extracted_fields if doc_intel else None,
+        entity_status=entity_status,
+        ubo_summary=ubo_summary,
+        screening_summary=screening_summary,
+        risk_summary=risk_summary,
+        ledger_ids=ledger_ids,
+    )
+
+
+def _build_edd_trace(
+    sections: object,  # EddMemoSections; typed as object to dodge a forward import
+    ledger_ids: dict[str, str],
+    citations: list[str],
+) -> ReasoningTrace:
+    available_ids = [v for v in ledger_ids.values() if v]
+    cited = set(citations)
+    coverage = len(cited.intersection(available_ids)) / len(available_ids) if available_ids else 0.0
+    confidence = max(0.05, min(0.99, coverage))
+    cited_summary = ", ".join(sorted(cited)) if cited else "(none)"
+    return ReasoningTrace(
+        what_searched=(
+            "Synthesized a structured EDD memo from the latest case agent "
+            "outputs (Document Intelligence, Entity Verification, UBO Graph, "
+            "Screening, Risk Scoring), targeting five named sections."
+        ),
+        what_hit=(f"Generated five sections citing {len(cited)} ledger entries: {cited_summary}."),
+        confidence_self_rating=ConfidenceWithRationale(
+            value=confidence,
+            rationale=(
+                "Confidence reflects how many available agent outputs the EDD "
+                "memo cites — full coverage is high; partial is lower."
+            ),
+            band=to_band(confidence),
+        ),
+        counterfactual=(
+            "Memo would change if the officer corrects an upstream agent "
+            "output and the case re-enters decision_ready, or if the EDD "
+            "memo template is updated."
+        ),
+    )
+
+
 __all__ = [
     "CitedClaim",
     "DraftedRationale",
+    "EddMemoOutput",
     "WritingAgentInput",
     "writing",
+    "writing_edd_memo",
 ]

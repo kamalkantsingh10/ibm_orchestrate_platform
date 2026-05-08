@@ -39,5 +39,9 @@ class SseEvent(BaseModel):
         "decision.committed",
         "decision.sealed",
         "decision.undone",
+        # Story 8.7 — fires when a commit's outcome routes the case to
+        # the Team Lead approval queue (escalate_to_edd, or
+        # approve_with_conditions on a high-risk case).
+        "case.escalated_for_approval",
     ]
     data: dict[str, Any]

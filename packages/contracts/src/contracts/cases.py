@@ -55,6 +55,7 @@ class CaseState(StrEnum):
     INTAKE_SCHEDULED = "intake_scheduled"
     DECISION_READY = "decision_ready"
     PENDING_SEAL = "pending_seal"  # Story 7.4 — 120s undo window
+    PENDING_LEAD_APPROVAL = "pending_lead_approval"  # Story 8.7 — Team Lead queue
     COMMITTED = "committed"
     ESCALATED = "escalated"
     CLOSED = "closed"
@@ -69,14 +70,26 @@ ALLOWED_TRANSITIONS: dict[CaseState, set[CaseState]] = {
     # Story 7.4 — DECISION_READY no longer transitions directly to
     # COMMITTED; all commits go through PENDING_SEAL so the 120s undo
     # window applies.
+    # Story 8.7 — qualifying commit outcomes (escalate_to_edd, or
+    # approve_with_conditions on a high-risk case) skip the undo
+    # window and route straight to PENDING_LEAD_APPROVAL.
     CaseState.DECISION_READY: {
         CaseState.PENDING_SEAL,
+        CaseState.PENDING_LEAD_APPROVAL,
         CaseState.ESCALATED,
         CaseState.CLOSED,
     },
     CaseState.PENDING_SEAL: {
         CaseState.COMMITTED,  # timer elapses → seal
         CaseState.DECISION_READY,  # officer undo (Story 7.5)
+    },
+    # Story 8.7 — Team Lead approves → COMMITTED; rejects → DECISION_READY
+    # for re-work. Closure is also a terminal escape hatch (e.g., case
+    # withdrawn during approval window).
+    CaseState.PENDING_LEAD_APPROVAL: {
+        CaseState.COMMITTED,
+        CaseState.DECISION_READY,
+        CaseState.CLOSED,
     },
     CaseState.COMMITTED: {CaseState.CLOSED},
     CaseState.ESCALATED: {

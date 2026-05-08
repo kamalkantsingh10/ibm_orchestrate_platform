@@ -542,12 +542,17 @@ async def test_writing_failure_does_not_roll_back_intake(
     tmp_writer: LedgerWriter,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from contracts.writing import EddMemoSections
+
     from agents.adapters.writing.base import RawRationaleDraft, WritingLLMError
 
     class _BoomLLM:
         model_id = "boom"
 
         async def draft_rationale(self, *, rendered_prompt: str) -> RawRationaleDraft:
+            raise WritingLLMError("kaboom")
+
+        async def draft_edd_memo(self, *, rendered_prompt: str) -> EddMemoSections:
             raise WritingLLMError("kaboom")
 
     case = await _seed_case(engine)

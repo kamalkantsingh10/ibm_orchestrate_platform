@@ -25,6 +25,7 @@ import type { components } from '@/api-types';
 import { useCase } from '@/hooks/useCase';
 import { useDecisionDraft } from '@/hooks/useDecisionDraft';
 import { useDocumentIntelligence } from '@/hooks/useDocumentIntelligence';
+import { useEddMemoDraft } from '@/hooks/useEddMemoDraft';
 import { useSealAnimation } from '@/hooks/useSealAnimation';
 import { useWritingAgentDraft } from '@/hooks/useWritingAgentDraft';
 import { useCurrentUser } from '@/stores/currentUser';
@@ -72,6 +73,9 @@ export function DecisionZone({
 }: DecisionZoneProps) {
   const { data: caseData } = useCase(caseId);
   const { data: writingDraft } = useWritingAgentDraft(caseId);
+  // Story 8.3 — when the case has been escalated to EDD, the v2 memo
+  // takes priority over the v1 rationale for editor seeding.
+  const { data: eddMemoDraft } = useEddMemoDraft(caseId);
   const { data: docIntel } = useDocumentIntelligence(caseId);
   const draft = useDecisionDraft(caseId);
   const queryClient = useQueryClient();
@@ -86,13 +90,16 @@ export function DecisionZone({
   const isReadOnly = state === 'pending_seal' || state === 'committed';
 
   // Pitfall #2 — never clobber officer edits. The seed used at editor-
-  // build time is the localStorage draft if present, otherwise the
-  // Writing agent's draft, otherwise empty. Computing the fallback at
-  // build time (rather than via a setState-in-effect on writingDraft)
-  // means a writing-agent draft that arrives after the analyst started
-  // typing is silently ignored — draft.draft.rationaleHtml is non-empty
-  // and the OR-chain skips the seed.
-  const seedSignature = writingDraft?.rationaleHtml ? 'seeded' : 'unseeded';
+  // build time is the localStorage draft if present, otherwise the EDD
+  // memo (Story 8.3) if present, otherwise the v1 Writing rationale,
+  // otherwise empty. Computing the fallback at build time (rather than
+  // via a setState-in-effect) means a draft that arrives after the
+  // analyst started typing is silently ignored.
+  const seedSignature = eddMemoDraft?.html
+    ? 'edd-seeded'
+    : writingDraft?.rationaleHtml
+      ? 'seeded'
+      : 'unseeded';
 
   // Clear the localStorage draft when the case state lands in
   // 'committed'. Story 7-5's undo flow re-opens the editor with the
@@ -124,11 +131,13 @@ export function DecisionZone({
 
   const ledgerIds = useMemo(() => new Set(ledgerEntries.map((e) => e.id)), [ledgerEntries]);
 
-  // Effective rationale = officer edits if any, else writing-agent seed.
-  // Used both for citation validation (commit gate) and for the commit
-  // body — the analyst can commit a clean agent-drafted rationale
-  // without ever typing.
-  const effectiveRationaleHtml = draft.draft.rationaleHtml || writingDraft?.rationaleHtml || '';
+  // Effective rationale = officer edits if any, else the EDD memo
+  // (Story 8.3), else the v1 writing-agent draft. Used both for
+  // citation validation (commit gate) and for the commit body — the
+  // analyst can commit a clean agent-drafted rationale without ever
+  // typing.
+  const effectiveRationaleHtml =
+    draft.draft.rationaleHtml || eddMemoDraft?.html || writingDraft?.rationaleHtml || '';
 
   const broken = useMemo(
     () => findBrokenCitations(effectiveRationaleHtml, ledgerIds),
@@ -243,7 +252,28 @@ export function DecisionZone({
         setCommitError(problem?.detail ?? `Commit failed (${res.status})`);
         return;
       }
-      // Optimistic — case state SSE-flips to pending_seal momentarily.
+      // Story 8.7 AC #5 — qualifying outcomes route the case to the
+      // Team Lead approval queue; surface that out-of-band so the
+      // analyst doesn't expect the 120s undo / seal flow.
+      try {
+        const body = (await res.json().catch(() => null)) as {
+          case_state?: string;
+        } | null;
+        if (body?.case_state === 'pending_lead_approval') {
+          // Lazy import keeps the test surface (which doesn't mock
+          // sonner here) decoupled.
+          const { toast } = await import('sonner');
+          toast('Sent to Team Lead approval queue', {
+            description: 'Rohan Mehta will see this in the approvals queue.',
+            duration: 4000,
+          });
+        }
+      } catch {
+        /* swallow — confirmation toast is best-effort */
+      }
+      // Optimistic — case state SSE-flips to pending_seal /
+      // pending_lead_approval momentarily; refetch picks up the
+      // authoritative state.
       void queryClient.invalidateQueries({ queryKey: ['case', caseId] });
     } catch (err) {
       setCommitError(err instanceof Error ? err.message : 'Commit failed');

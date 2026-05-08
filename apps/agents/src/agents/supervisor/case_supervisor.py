@@ -34,6 +34,7 @@ from cockpit_api.services.ledger_service import (
     get_ledger_reader,
     get_ledger_writer,
 )
+from cockpit_api.services.sse_registry import publish_safe
 from contracts.agent_action import AgentActionLedgerEntry
 from contracts.case_supervisor import CaseIntakeOutcome
 from contracts.cases import Case, CaseId, CaseState
@@ -52,14 +53,15 @@ from contracts.screening import (
     ScreeningHit,
     ScreeningSubject,
 )
+from contracts.sse import SseEvent
 from contracts.ubo import UBOEdge, UBOGraph, UBOGraphInput, UBOPersonNode
-from contracts.writing import DraftedRationale, WritingAgentInput
+from contracts.writing import DraftedRationale, EddMemoOutput, WritingAgentInput
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from ulid import ULID
 
 from agents.adapters.writing import WritingLLM
-from agents.decision.writing import writing
+from agents.decision.writing import writing, writing_edd_memo
 from agents.intake.document_intelligence import document_intelligence
 from agents.intake.entity_verification import EntityCaseView, entity_verification
 from agents.intake.risk_scoring import RiskCaseView, risk_scoring
@@ -577,6 +579,8 @@ class CaseSupervisor:
         self._writing_llm = writing_llm
 
     async def run_intake(self, case_id: CaseId) -> CaseIntakeOutcome:
+        # Validate the case in its own short-lived session so persistence
+        # work below can use per-agent transactions.
         async with self._session_factory() as session:
             case = await CaseRepo.get(session, case_id)
             if case is None:
@@ -584,32 +588,58 @@ class CaseSupervisor:
             if case.state is not CaseState.INTAKE_SCHEDULED:
                 raise CaseNotIntakeReadyError(case_id, case.state)
 
-            ctx = IntakeContext(case=case)
-            agents_run: list[str] = []
-            failed_agent: str | None = None
-            error_message: str | None = None
-            fields_extracted = 0
+        ctx = IntakeContext(case=case)
+        agents_run: list[str] = []
+        failed_agent: str | None = None
+        error_message: str | None = None
+        fields_extracted = 0
 
-            for spec in INTAKE_AGENTS:
-                if not spec.requires(case):
-                    logger.info(
-                        "supervisor.skipped agent=%s case=%s reason=requires_false",
-                        spec.name,
-                        case_id,
-                    )
-                    continue
-                agents_run.append(spec.name)
-                try:
-                    output = await spec.invoke(ctx)
-                except AgentExecutionError as exc:
-                    failed_agent = exc.agent_id
-                    error_message = str(exc.original)[:500]
-                    break
-                else:
-                    ctx.outputs[spec.name] = output
+        for spec in INTAKE_AGENTS:
+            if not spec.requires(case):
+                logger.info(
+                    "supervisor.skipped agent=%s case=%s reason=requires_false",
+                    spec.name,
+                    case_id,
+                )
+                continue
+            agents_run.append(spec.name)
+            try:
+                output = await spec.invoke(ctx)
+            except AgentExecutionError as exc:
+                failed_agent = exc.agent_id
+                error_message = str(exc.original)[:500]
+                break
+            ctx.outputs[spec.name] = output
 
-            if failed_agent is not None:
-                # Blocked path
+            # Per-agent persist + commit so the panel data is queryable
+            # before we publish the SSE "complete" event below. This is
+            # what makes the agent rail's "Done" pill honest — the rail
+            # never reports a state the panels can't yet render.
+            async with self._session_factory() as session:
+                increment = await self._persist_agent_output(session, case_id, spec.name, output)
+                await session.commit()
+            if increment:
+                fields_extracted += increment
+
+            # Story 4.6 SSE fan-out — moved here from the @agent_action
+            # decorator so the rail invalidates AFTER persistence.
+            await publish_safe(
+                case_id,
+                SseEvent(
+                    event="agent.state_changed",
+                    data={
+                        "case_id": case_id,
+                        "agent_slug": spec.name,
+                        "state": "complete",
+                    },
+                ),
+            )
+
+        if failed_agent is not None:
+            # Blocked path — earlier agents (if any) are already persisted
+            # and their SSE fired; this just records the failure and
+            # transitions the case.
+            async with self._session_factory() as session:
                 await CaseRepo.transition(session, case_id, CaseState.ESCALATED)
                 await CaseRepo.add_block_marker(
                     session,
@@ -618,140 +648,141 @@ class CaseSupervisor:
                     block_reason=error_message or "agent execution error",
                 )
                 await session.commit()
-                await self._append_block_ledger(case_id, failed_agent, error_message or "")
-                if self._notify is not None:
-                    await self._notify(
-                        case_id,
-                        "case.intake_blocked",
-                        {
-                            "failed_agent": failed_agent,
-                            "error_message": error_message,
-                        },
-                    )
-                return CaseIntakeOutcome(
-                    case_id=case_id,
-                    status="blocked",
-                    agents_run=agents_run,
-                    failed_agent=failed_agent,
-                    error_message=error_message,
-                    fields_extracted=0,
-                    completed_at=datetime.now(UTC),
-                )
-
-            # Completed path — fill evidence_ids, persist each typed output, transition.
-            doc_intel_output = ctx.outputs.get("document_intelligence")
-            if isinstance(doc_intel_output, DocumentIntelligenceOutput):
-                agent_entry = await _find_agent_ledger_entry(self._reader, case_id, "document_intelligence")
-                if agent_entry is not None:
-                    filled_di = _fill_evidence_ids(doc_intel_output, agent_entry.id)
-                else:
-                    logger.error(
-                        "supervisor.agent_entry_missing case=%s actor=%s",
-                        case_id,
-                        "document_intelligence",
-                    )
-                    filled_di = doc_intel_output
-                await IntakeRepo.upsert(session, case_id, "document_intelligence", filled_di)
-                fields_extracted = len(filled_di.extracted_fields)
-
-            ev_output = ctx.outputs.get("entity_verification")
-            if isinstance(ev_output, EntityVerificationResult):
-                ev_entry = await _find_agent_ledger_entry(self._reader, case_id, "entity_verification")
-                if ev_entry is not None:
-                    filled_ev = _fill_evidence_ids_entity_verification(ev_output, ev_entry.id)
-                else:
-                    logger.error(
-                        "supervisor.agent_entry_missing case=%s actor=%s",
-                        case_id,
-                        "entity_verification",
-                    )
-                    filled_ev = ev_output
-                await IntakeRepo.upsert(session, case_id, "entity_verification", filled_ev)
-
-            ubo_output = ctx.outputs.get("ubo_graph")
-            if isinstance(ubo_output, UBOGraph):
-                ubo_entry = await _find_agent_ledger_entry(self._reader, case_id, "ubo_graph")
-                if ubo_entry is not None:
-                    filled_ubo = _fill_evidence_ids_ubo_graph(ubo_output, ubo_entry.id)
-                else:
-                    logger.error(
-                        "supervisor.agent_entry_missing case=%s actor=%s",
-                        case_id,
-                        "ubo_graph",
-                    )
-                    filled_ubo = ubo_output
-                await IntakeRepo.upsert(session, case_id, "ubo_graph", filled_ubo)
-
-            screening_output = ctx.outputs.get("screening")
-            if isinstance(screening_output, ScreeningAgentOutput):
-                scr_entry = await _find_agent_ledger_entry(self._reader, case_id, "screening")
-                if scr_entry is not None:
-                    filled_scr = _fill_evidence_ids_screening(screening_output, scr_entry.id)
-                else:
-                    logger.error(
-                        "supervisor.agent_entry_missing case=%s actor=%s",
-                        case_id,
-                        "screening",
-                    )
-                    filled_scr = screening_output
-                await IntakeRepo.upsert(session, case_id, "screening", filled_scr)
-
-            risk_output = ctx.outputs.get("risk_scoring")
-            if isinstance(risk_output, RiskScore):
-                risk_entry = await _find_agent_ledger_entry(self._reader, case_id, "risk_scoring")
-                if risk_entry is not None:
-                    filled_risk = _fill_evidence_ids_risk_scoring(risk_output, risk_entry.id)
-                else:
-                    logger.error(
-                        "supervisor.agent_entry_missing case=%s actor=%s",
-                        case_id,
-                        "risk_scoring",
-                    )
-                    filled_risk = risk_output
-                await IntakeRepo.upsert(session, case_id, "risk_scoring", filled_risk)
-                # Story 5.6 / AC5 — denormalize the band onto cases.risk_band.
-                await CaseRepo.update_risk_band(session, case_id, filled_risk.band)
-
-            await CaseRepo.transition(session, case_id, CaseState.DECISION_READY)
-            await session.commit()
-
-            await self._append_completed_ledger(
+            # Tell the cockpit-ui the case state pill / queue rail need to
+            # refetch — without this, the header stays "intake scheduled"
+            # until the next manual refresh.
+            await publish_safe(
                 case_id,
-                agents_run=agents_run,
-                fields_extracted=fields_extracted,
+                SseEvent(
+                    event="case.state_changed",
+                    data={"case_id": case_id, "state": CaseState.ESCALATED.value},
+                ),
             )
+            await self._append_block_ledger(case_id, failed_agent, error_message or "")
             if self._notify is not None:
                 await self._notify(
                     case_id,
-                    "case.intake_completed",
+                    "case.intake_blocked",
                     {
-                        "agents": agents_run,
-                        "fields_extracted": fields_extracted,
+                        "failed_agent": failed_agent,
+                        "error_message": error_message,
                     },
                 )
-
-            # Story 7.3 — kick the Writing agent now that all intake
-            # outputs landed. Writing is a separate phase, not part of
-            # the intake fan-out (pitfall #1: don't pollute
-            # ``agents_run`` with writing). Failure here MUST NOT roll
-            # back intake — the analyst can still author the rationale
-            # from scratch.
-            try:
-                await self.run_writing(case_id)
-            except Exception as exc:  # noqa: BLE001 — explicit "swallow + log"
-                logger.warning(
-                    "supervisor.writing_failed case=%s error=%r",
-                    case_id,
-                    exc,
-                )
-
             return CaseIntakeOutcome(
                 case_id=case_id,
-                status="completed",
+                status="blocked",
                 agents_run=agents_run,
-                fields_extracted=fields_extracted,
+                failed_agent=failed_agent,
+                error_message=error_message,
+                fields_extracted=0,
                 completed_at=datetime.now(UTC),
             )
+
+        # Completed path — all agents persisted; finalise case state.
+        async with self._session_factory() as session:
+            await CaseRepo.transition(session, case_id, CaseState.DECISION_READY)
+            await session.commit()
+
+        # Tell the cockpit-ui the case state pill / queue rail need to
+        # refetch — without this, the header stays "intake scheduled"
+        # until the next manual refresh.
+        await publish_safe(
+            case_id,
+            SseEvent(
+                event="case.state_changed",
+                data={"case_id": case_id, "state": CaseState.DECISION_READY.value},
+            ),
+        )
+
+        await self._append_completed_ledger(
+            case_id,
+            agents_run=agents_run,
+            fields_extracted=fields_extracted,
+        )
+        if self._notify is not None:
+            await self._notify(
+                case_id,
+                "case.intake_completed",
+                {
+                    "agents": agents_run,
+                    "fields_extracted": fields_extracted,
+                },
+            )
+
+        # Story 7.3 — kick the Writing agent now that all intake
+        # outputs landed. Writing is a separate phase, not part of
+        # the intake fan-out (pitfall #1: don't pollute
+        # ``agents_run`` with writing). Failure here MUST NOT roll
+        # back intake — the analyst can still author the rationale
+        # from scratch.
+        try:
+            await self.run_writing(case_id)
+        except Exception as exc:  # noqa: BLE001 — explicit "swallow + log"
+            logger.warning(
+                "supervisor.writing_failed case=%s error=%r",
+                case_id,
+                exc,
+            )
+
+        return CaseIntakeOutcome(
+            case_id=case_id,
+            status="completed",
+            agents_run=agents_run,
+            fields_extracted=fields_extracted,
+            completed_at=datetime.now(UTC),
+        )
+
+    async def _persist_agent_output(
+        self,
+        session: AsyncSession,
+        case_id: CaseId,
+        spec_name: str,
+        output: BaseModel,
+    ) -> int:
+        """Fill evidence_ids onto the typed output and upsert it.
+
+        Returns the number of extracted fields (only meaningful for
+        document_intelligence; 0 otherwise) so the caller can roll up
+        ``fields_extracted`` for the final ledger entry.
+        """
+        agent_entry = await _find_agent_ledger_entry(self._reader, case_id, spec_name)
+        if agent_entry is None:
+            logger.error(
+                "supervisor.agent_entry_missing case=%s actor=%s",
+                case_id,
+                spec_name,
+            )
+
+        if isinstance(output, DocumentIntelligenceOutput):
+            filled = _fill_evidence_ids(output, agent_entry.id) if agent_entry else output
+            await IntakeRepo.upsert(session, case_id, spec_name, filled)
+            return len(filled.extracted_fields)
+
+        if isinstance(output, EntityVerificationResult):
+            filled_ev = _fill_evidence_ids_entity_verification(output, agent_entry.id) if agent_entry else output
+            await IntakeRepo.upsert(session, case_id, spec_name, filled_ev)
+            return 0
+
+        if isinstance(output, UBOGraph):
+            filled_ubo = _fill_evidence_ids_ubo_graph(output, agent_entry.id) if agent_entry else output
+            await IntakeRepo.upsert(session, case_id, spec_name, filled_ubo)
+            return 0
+
+        if isinstance(output, ScreeningAgentOutput):
+            filled_scr = _fill_evidence_ids_screening(output, agent_entry.id) if agent_entry else output
+            await IntakeRepo.upsert(session, case_id, spec_name, filled_scr)
+            return 0
+
+        if isinstance(output, RiskScore):
+            filled_risk = _fill_evidence_ids_risk_scoring(output, agent_entry.id) if agent_entry else output
+            await IntakeRepo.upsert(session, case_id, spec_name, filled_risk)
+            # Story 5.6 / AC5 — denormalize the band onto cases.risk_band.
+            await CaseRepo.update_risk_band(session, case_id, filled_risk.band)
+            return 0
+
+        # Unknown output type — persist as-is, no evidence_id fill.
+        await IntakeRepo.upsert(session, case_id, spec_name, output)
+        return 0
 
     async def run_writing(self, case_id: CaseId) -> DraftedRationale:
         """Run the Writing agent for a case that has completed intake.
@@ -822,7 +853,93 @@ class CaseSupervisor:
 
             await IntakeRepo.upsert(session, case_id, "writing", output)
             await session.commit()
-            return output
+
+        # SSE publish lives outside the session block — same rationale as
+        # run_intake: the rail's "Done" pill must lag persistence, not lead
+        # it. The decorator no longer publishes; this is the canonical site.
+        await publish_safe(
+            case_id,
+            SseEvent(
+                event="agent.state_changed",
+                data={"case_id": case_id, "agent_slug": "writing", "state": "complete"},
+            ),
+        )
+        return output
+
+    async def run_writing_edd_memo(self, case_id: CaseId) -> EddMemoOutput:
+        """Story 8.3 — invoke the Writing agent in ``edd_memo`` mode.
+
+        Mirrors ``run_writing`` but dispatches to ``writing_edd_memo``
+        and persists the typed output under ``IntakeRepo`` keyed by
+        ``agent_id="writing_edd_memo"`` so the cockpit-ui can read it
+        independently of the v1 rationale draft. Triggered by the
+        decision-service post-commit path on ``escalate_to_edd``
+        outcomes.
+        """
+        async with self._session_factory() as session:
+            case = await CaseRepo.get(session, case_id)
+            if case is None:
+                raise CaseNotFoundError(case_id)
+            # EDD memo is allowed on any post-intake state (the trigger
+            # fires after commit, so the case is in pending_seal or
+            # later by then).
+            if case.state == CaseState.INTAKE_SCHEDULED:
+                raise CaseNotInDecisionReadyError(case_id, case.state)
+
+            outputs = await IntakeRepo.get_by_case(session, case_id)
+
+            doc_intel_raw = outputs.get("document_intelligence")
+            if doc_intel_raw is None:
+                raise WritingPrerequisitesMissingError(case_id, "document_intelligence")
+            doc_intel_output = DocumentIntelligenceOutput.model_validate(doc_intel_raw)
+
+            ev_raw = outputs.get("entity_verification")
+            ev_output = EntityVerificationResult.model_validate(ev_raw) if ev_raw is not None else None
+
+            ubo_raw = outputs.get("ubo_graph")
+            ubo_output = UBOGraph.model_validate(ubo_raw) if ubo_raw is not None else None
+
+            screening_raw = outputs.get("screening")
+            screening_output = ScreeningAgentOutput.model_validate(screening_raw) if screening_raw is not None else None
+
+            risk_raw = outputs.get("risk_scoring")
+            risk_output = RiskScore.model_validate(risk_raw) if risk_raw is not None else None
+
+            ledger_ids: dict[str, str] = {}
+            for slug in (
+                "document_intelligence",
+                "entity_verification",
+                "ubo_graph",
+                "screening",
+                "risk_scoring",
+            ):
+                entry = await _find_agent_ledger_entry(self._reader, case_id, slug)
+                if entry is not None:
+                    ledger_ids[slug] = entry.id
+
+            output = await writing_edd_memo(
+                WritingAgentInput(case_id=case_id),
+                case=case,
+                doc_intel=doc_intel_output,
+                entity_verification=ev_output,
+                ubo=ubo_output,
+                screening=screening_output,
+                risk=risk_output,
+                ledger_ids=ledger_ids,
+                llm=self._writing_llm,
+            )
+
+            await IntakeRepo.upsert(session, case_id, "writing_edd_memo", output)
+            await session.commit()
+
+        await publish_safe(
+            case_id,
+            SseEvent(
+                event="agent.state_changed",
+                data={"case_id": case_id, "agent_slug": "writing_edd_memo", "state": "complete"},
+            ),
+        )
+        return output
 
     # ─── ledger helpers ───
     #

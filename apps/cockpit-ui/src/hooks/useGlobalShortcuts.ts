@@ -1,5 +1,6 @@
 // Global keyboard shortcuts — Stories 4.7 (Cmd+1..6 mode switch), 4.8
-// (⌘K command palette), and 7.2 (⌘+Shift+D focus DecisionZone).
+// (⌘K command palette), 7.2 (⌘+Shift+D focus DecisionZone), and 8.1
+// (Cmd+4 → Zen, route-gated to /cases/:caseId).
 // Mounted once in __root.tsx so they fire on every route, including the
 // case canvas.
 //
@@ -18,6 +19,11 @@ function _isTypingTarget(target: EventTarget | null): boolean {
   if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
   if (target.isContentEditable) return true;
   return false;
+}
+
+function _isCaseRoute(): boolean {
+  if (typeof window === 'undefined') return false;
+  return window.location.pathname.startsWith('/cases/');
 }
 
 export function useGlobalShortcuts(): void {
@@ -63,9 +69,20 @@ export function useGlobalShortcuts(): void {
         if (e.key === '1') {
           setMode('investigation');
           announce('Switched to Investigation mode');
+        } else if (e.key === '4') {
+          // Story 8.1 AC #1, #4 — Zen is route-gated to case canvas.
+          if (_isCaseRoute()) {
+            setMode('zen');
+            announce('Switched to Zen mode');
+          } else {
+            toast('Zen mode is only available inside a case', {
+              description: 'Open a case from the queue first.',
+              duration: 2500,
+            });
+          }
         } else {
           toast('Mode not yet available', {
-            description: 'Investigation is the only mode in this build.',
+            description: 'Investigation and Zen are wired in this build.',
             duration: 2500,
           });
         }

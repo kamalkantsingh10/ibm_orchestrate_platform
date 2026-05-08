@@ -33,7 +33,7 @@ For the full impact analysis and recommended approach, see `Documentation/planni
 
 ### Active scope summary
 
-**11 epics, 70 stories.** A 40% reduction from the bank-buyer scope (11 epics, 116 stories). Epic 11 cut entirely; Epic 12 (Cockpit Visual Refresh, 5 stories) added 2026-05-08. Epics 1, 2, 3, 7, 9, 10 substantially gutted to remove enterprise infrastructure (OIDC, multi-tenant, HSM-backed cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest, DR, WCAG audit, performance budgets). Epics 4, 5, 6, 8 mostly preserved — they hold the agent showcase and UI fidelity moments that are the demo's purpose.
+**11 epics, 69 stories.** A ~40% reduction from the bank-buyer scope (11 epics, 116 stories). Epic 11 cut entirely; Epic 12 (Cockpit Visual Refresh, 5 stories) added 2026-05-08 then removed 2026-05-08 after the visual register was implemented directly in the cockpit by the developer; Epic 13 (Cloud Orchestrate Runtime Path for Intake, 4 stories) added 2026-05-08 to route the analyst's "Process now" trigger through cloud watsonx Orchestrate rather than the in-process Python supervisor. Epics 1, 2, 3, 7, 9, 10 substantially gutted to remove enterprise infrastructure (OIDC, multi-tenant, HSM-backed cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest, DR, WCAG audit, performance budgets). Epics 4, 5, 6, 8 mostly preserved — they hold the agent showcase and UI fidelity moments that are the demo's purpose.
 
 ### Active epics (demo scope)
 
@@ -88,8 +88,11 @@ For the full impact analysis and recommended approach, see `Documentation/planni
 **Epic 2:**
 - **2-4 Fixture case loader with three seeded cases** — Loads three canonical demo cases from JSON files into SQLite at startup or via reset: (1) clean approval (low risk, simple UBO), (2) hairy shell-company UBO (multi-layer ownership, nominee flags), (3) screening hit (sanctions match with name-similarity ambiguity). Used by every agent showcase and by all three role demos.
 
-**Epic 12 (new epic, added 2026-05-08):**
-- **Cockpit Visual Refresh** (5 stories: 12-1 through 12-5) — Tier-1 private-bank visual refresh added after the demo cockpit was judged "polished prototype" rather than "officer workstation." Full-viewport workstation chrome, design token reset (graphite scale + claret accent + Source Serif 4 / Inter Tight type ramp), tabular density in queue rail and Documents panel, document-grade case canvas IA with sticky section nav, banker-hero risk panel (donut removed), horizontal agent activity strip with collapse-to-56px + sober UBO node redesign, sticky decision drawer + designed Approvals/Regulator empty states. Preserves all FRs — no functional, backend, or agent changes. Draft epic doc: `Documentation/planning-artifacts/epic-12-cockpit-visual-refresh.md`.
+**Epic 12 (removed 2026-05-08):**
+- **Cockpit Visual Refresh** — added then removed the same day. The visual register the epic targeted (Inter typography, zinc-aligned text colours, polished chrome) was implemented directly in the cockpit by the developer, making the planned five stories unnecessary. Detail files deleted from `Documentation/`.
+
+**Epic 13 (new epic, added 2026-05-08):**
+- **Cloud Orchestrate Runtime Path for Intake** (4 stories: 13-1 through 13-4) — routes the analyst's "Process now" trigger through cloud watsonx Orchestrate's chat API (Option A-thin: cockpit-api → cloud `case_supervisor` → calls `run_case_intake` tool over the ngrok tunnel → existing in-process supervisor runs as the tool body). Surfaces the platform in the headline analyst flow without dismantling the deterministic Python supervisor. Local fast path retained as a fallback toggle.
 
 ### Stories simplified (kept but scope reduced)
 
@@ -575,13 +578,14 @@ System is pilot-ready. Mock internal audit returns zero remediation. Threat mode
 **UX-DRs covered:** UX-DR36 (full WCAG audit completion)
 **NFR validation:** All NFRs explicitly verified — performance budgets, security baseline, accessibility audit, observability dashboards, compliance readiness.
 
-### Epic 12 — Cockpit Visual Refresh (demo-scope only, added 2026-05-08)
+### Epic 13 — Cloud Orchestrate Runtime Path for Intake (demo-scope only, added 2026-05-08)
 
-Tier-1 private-bank visual register applied across the cockpit shell. Full-viewport workstation chrome (header + status bar + 6-mode switcher), reduced palette (graphite + claret accent + signal hues only), 7-step type ramp with serif/sans pairing, tabular density in queue rail and Documents panel, document-grade case canvas IA with sticky section nav, banker-hero risk panel, horizontal agent activity strip with collapse mode, sober UBO redesign, sticky decision drawer, designed Approvals/Regulator empty states.
+The analyst's "Process now" trigger is routed through cloud watsonx Orchestrate's chat API instead of running the in-process Python `CaseSupervisor` directly. The cockpit-api invokes the cloud `case_supervisor` agent; that agent's LLM classifies the request and calls the existing `run_case_intake` OpenAPI tool (cockpit-api endpoint exposed via ngrok) which runs the deterministic Python fan-out as the tool body. Outcome is parsed back from the chat completion's tool-call result and returned to the cockpit-ui.
 
-**FRs covered:** None (preserves all FRs end-to-end — purely visual/IA refinement)
-**UX-DRs covered:** Re-aligns the cockpit's visual register with the design principles in `ux-design-specification.md` (full-viewport workstation, tabular figures, type-led hierarchy, restrained palette).
-**Non-goals:** No functional, backend, agent, or contract changes. Not a brand exercise. Not a re-architecture of the macro IA.
+This is *Option A-thin* (per design discussion 2026-05-08): the cloud is exercised on the headline flow without moving fan-out / persistence / state-machine logic into the cloud. The local Python supervisor remains the source of truth and is retained as a fallback when the tunnel or cloud is unreachable.
+
+**FRs covered:** None (no new product requirements — re-routes the existing intake flow through the registered cloud agent surface)
+**Non-goals:** Not Option A-thick — does not move fan-out logic, per-agent persistence, or the state machine into the cloud. Does not change which adapters the agents use (fixture vs watsonx); model selection stays per-agent in `agent.yaml`. Does not register new agents or change the existing nine-agent topology.
 
 ---
 
@@ -2772,198 +2776,120 @@ So that NFR-O5 is verified before pilot (NFR-O5).
 
 ---
 
-## Epic 12: Cockpit Visual Refresh (demo-scope only)
+## Epic 13: Cloud Orchestrate Runtime Path for Intake (demo-scope only)
 
-> **Demo-scope addition (2026-05-08).** Unlike Epics 1–11 above (whose detailed stories preserve the bank-buyer scope for revival), Epic 12 was authored after the demo re-scope and exists only in demo scope. Source-of-truth detail lives in `Documentation/planning-artifacts/epic-12-cockpit-visual-refresh.md` and per-story files `Documentation/implementation-artifacts/12-1-...md` through `12-5-...md`. The summaries below mirror the Given/When/Then convention used elsewhere in this document.
+> **Demo-scope addition (2026-05-08).** Routes "Process now" through cloud watsonx Orchestrate so the headline analyst flow exercises the platform. The cockpit-api calls the cloud `case_supervisor` chat surface; the cloud agent invokes the registered `run_case_intake` OpenAPI tool (which targets cockpit-api over the ngrok tunnel) and the existing Python supervisor runs as the tool body. The fan-out logic, persistence, and state machine all stay in the local supervisor — this epic is the trigger path only. Local fast path retained as a fallback toggle.
 
-Officer-grade visual refresh of the cockpit shell, queue rail, case canvas, panels, agent rail, and decision moment. No functional or backend changes; no new agent work; existing FRs preserved end-to-end.
+### Story 13.1: watsonx Orchestrate REST client + IAM auth
 
-### Story 12.1: Full-viewport shell, design tokens, chrome, and mode switcher
-
-As an officer arriving at the cockpit,
-I want the cockpit to fill my entire browser viewport with proper workstation chrome (header + status bar + mode switcher) on top of a coordinated visual system,
-So that the cockpit reads as a tier-1-bank workstation rather than a centered marketing-style page.
+As a backend engineer wiring Process now through the cloud,
+I want a typed Python client in cockpit-api that authenticates against the watsonx Orchestrate tenant and invokes the chat-completion endpoint,
+So that the rest of this epic has a single, tested seam for cloud calls and credential handling.
 
 **Acceptance Criteria:**
 
-**Given** `apps/cockpit-ui/src/routes/__root.tsx`
-**When** the shell renders
-**Then** it is a single CSS grid at `100vw × 100vh` with three rows (`header 56px` · `main 1fr` · `statusbar 28px`)
-**And** the `main` row is a 3-column grid (`queue 320px` · `canvas 1fr` · `agentrail 360px`)
-**And** there is no `max-width`, `mx-auto`, or decorative side gutter anywhere in the shell
+**Given** new module `apps/cockpit-api/src/cockpit_api/services/orchestrate_client.py`
+**When** the client initialises
+**Then** it reads `WXO_API_KEY`, `WXO_TENANT_URL`, and `WXO_AGENT_ID` (or `WXO_AGENT_NAME`) from `cockpit_api.config.Settings`; missing values raise `OrchestrateConfigError` at first use, not at import
+**And** the client mints an IAM bearer token via the IBM Cloud IAM identity endpoint (`POST https://iam.cloud.ibm.com/identity/token` with `grant_type=urn:ibm:params:oauth:grant-type:apikey`) and caches it until 60s before expiry
+**And** the client exposes `async invoke_agent(agent_id: str, message: str, *, thread_id: str | None = None) -> AgentChatReply` returning a typed Pydantic model that contains the assistant text, the list of tool calls observed (tool name + input + output JSON), and the message + thread IDs
 
-**Given** `tailwind.config.ts` and `src/index.css`
-**When** tokens are applied
-**Then** colors collapse to a 10-step graphite scale + `paper` surface + `accent-claret` + signal hues; existing decorative blues are removed from component code
-**And** a 7-step type ramp (`text-display`/`h1`/`h2`/`h3`/`body`/`caption`/`micro`) pairs Source Serif 4 (display) with Inter Tight (body); `font-display: swap`
-**And** a `.tabular` utility (`font-variant-numeric: tabular-nums slashed-zero`) is applied to all numeric containers
-**And** ad-hoc `p-3`/`p-5` (off-grid) are migrated to grid-aligned `p-2`/`p-4`/`p-6` across `src/components/cockpit/**`
+**Given** the client encounters a 401 / 403 / 5xx
+**When** it retries
+**Then** retry policy is at most 2 retries with exponential backoff (250ms, 750ms); each retry refreshes the IAM token; persistent failure raises a typed `OrchestrateInvocationError` carrying the upstream status code and response body (truncated to 500 chars)
 
-**Given** new chrome components
-**When** the cockpit renders
-**Then** `Header.tsx` shows monogram + breadcrumb + 480px ⌘K search trigger + reduced-weight `UserSwitcher`
-**And** `StatusBar.tsx` shows ledger count + API health dot + last-sync + case ID copy + keyboard hint
-**And** `ModeSwitcher.tsx` renders a 6-segment control (Triage ⌘1 · Investigate ⌘2 · Decide ⌘3 · Memo ⌘4 · Audit ⌘5 · Learn ⌘6) with disabled segments tooltipped to their owning epic
-**And** ⌘1–⌘6 toggle wired modes; disabled keystrokes show a non-blocking toast
-
-**Given** visual QA
-**When** the cockpit renders at 1366×768 and 1920×1080
-**Then** no horizontal scroll, no overlap, panels grow proportionally; reference screenshots committed under `__visual__/12-1-shell-{1366,1920}.png`
-**And** `make lint` + `make test` are clean
-
-### Story 12.2: Queue rail and case canvas — tabular density and document-grade IA
-
-As an officer scanning my queue and reading a case,
-I want the queue rail to communicate risk × SLA × continuity at a glance and the case canvas to read as a regulator-grade document with a sticky section nav,
-So that I can pick the right case and find any section in it without scroll-hunting (depends on 12.1).
-
-**Acceptance Criteria:**
-
-**Given** the queue rail
-**When** it renders
-**Then** the rail header shows four filter chips (`All (n)` · `Mine` · `High risk` · `Due today`) with client-side toggle and a `Sorted: risk × SLA × age` caption
-**And** each row is a 4-column layout (`risk 24px` · `name 1fr truncated` · `sla chip` · `status pill`) where the risk marker uses the 4-tier confidence primitive in shape **and** position (filled square / half-filled / outline / dot) so it reads in monochrome
-**And** the SLA chip reads `2d` / `Nh` / `Due` / `Overdue` from `case.customer_metadata.extra.sla_due_at` with band-colored treatment
-**And** if `case.assigned_to_user_id == current_user.id`, a 12×2px `accent-claret` continuity glyph prepends the row
-**And** selected rows have a 2px left bar in `accent-claret` with `ink-50` background; no drop shadows
-**And** the keyboard hint `j / k navigate · Enter open · x defer · d done · Esc clear` is a sticky 28px footer of the rail on **all** queue states
-
-**Given** a case canvas
-**When** it renders
-**Then** `CaseTitleBlock.tsx` keeps the title block at ≤ 96px tall (truncated `text-h1` serif name + SLA chip + customer-type pill + case ID + country + last-update)
-**And** a 56px quick-facts strip surfaces 5 conditional bullets (Risk score · UBO · Documents · Screening · Last agent run) using `.tabular` figures
-**And** `SectionNav.tsx` is a 200px sticky nav on the **right** edge anchored to six sections (`Documents` · `Identity` · `UBO` · `Screening` · `Risk` · `Decision`) using `IntersectionObserver`; active section gets a 2px claret left bar and `text-h3` weight
-**And** each section is a `<section id="section-...">` block with hairline `ink-200` divider · 64px top padding · `text-h2` heading · 32px gap before content
-**And** the document-upload zone collapses behind a `+ Add documents` button on the Documents section heading (closed by default when `documents.length > 0` and `state == decision_ready`)
-**And** the Identity stub is restyled to a single skeleton row pointing at Story 5-1; the Decision section reserves `#section-decision` for Story 12.5
-
-**Given** test coverage
+**Given** unit tests under `apps/cockpit-api/tests/services/test_orchestrate_client.py`
 **When** `make test` runs
-**Then** new tests cover filter-chip filtering and the title-block height assertion; existing `QueueRail`/`cases.$caseId` tests are updated to the new DOM
-**And** reference screenshots are committed under `__visual__/12-2-{queue-1366,canvas-1366,canvas-1920}.png`
+**Then** tests cover successful invocation, IAM token caching + refresh, structured error on missing config, retry-then-success, and retry-exhausted failure — all using `httpx.MockTransport` (no live network)
 
-### Story 12.3: Documents panel and Risk panel rebuild
+**Given** the client is enabled
+**When** `make lint` runs
+**Then** mypy strict passes; the client carries its own `httpx.AsyncClient` with a 60s timeout (intake fan-out can run long)
 
-As an officer reading evidence on a case,
-I want the Documents panel to be a single sortable table of fields and the Risk panel to lead with one large number plus a horizontal stacked bar and one decomposition table,
-So that I can sort weakest evidence to the top and read the risk verdict in under a second (depends on 12.1, 12.2).
+### Story 13.2: Tool route split — internal `_intake-impl` callback + external `intake` router
 
-**Acceptance Criteria:**
-
-**Given** the Documents panel
-**When** it renders
-**Then** it is a single `<table>` of all fields across all documents with columns `Document` · `Field` · `Value` · `Confidence` · `Source`
-**And** the `Document` cell is blank for the 2nd–Nth row of any consecutive same-document group (visual grouping without filename repetition)
-**And** the header is sortable on `Confidence` (numeric, **default ascending** so weakest surfaces first), `Document`, and `Field`; active sort header shows an 8px arrow glyph
-**And** the Confidence cell renders `ConfidencePill` (Story 3-7) with no double-icon stacking; click opens the existing reasoning-trace slide-out (Story 6-6)
-**And** the Source column is a 16px doc glyph affordance; hover tooltip shows provenance, click opens the same reasoning trace (functionally equivalent)
-**And** the section heading reads `Documents · <n> fields extracted across <m> PDFs` with `Sorted by <active>` subline
-**And** empty state renders a single empty-state row referencing the collapsible upload zone
-
-**Given** the Risk panel
-**When** it renders
-**Then** the donut SVG is **removed**
-**And** a banker hero leads with the score in `text-display` (56px serif) + right-aligned band label (`LOW`/`MEDIUM`/`HIGH`) keyed to signal hues
-**And** a one-sentence summary in `text-body` is generated by a pure helper `buildRiskSummary(decomposition)` from the top-2 contributors plus officer-corrected components
-**And** a single 12px-tall horizontal stacked bar shows component contributions with `ink-300/500/700` rotation and the dominant component highlighted in `accent-claret`; segment hover shows `<Component> — <value> of <total>` tooltip
-**And** a single decomposition table (`Component` · `Weight` · `Value` · `Contribution` · `Note`) replaces the previously duplicated lists, with right-aligned `.tabular` numeric columns
-**And** the Recalculate button moves to the panel header (right-aligned)
-**And** clicking a decomposition row opens the existing reasoning-trace slide-out for that component
-
-**Given** test coverage
-**When** `make test` runs
-**Then** new tests cover default-sort-by-confidence, blanked-filename grouping, color-keyed band label, and the `buildRiskSummary` heuristic
-**And** reference screenshots are committed under `__visual__/12-3-{documents,risk}.png`
-
-### Story 12.4: Agent activity strip and UBO refresh
-
-As an officer needing mesh activity legible without dominating the canvas, and ownership investigations to fit the work,
-I want the right rail to compress 8 agents into a horizontal status strip plus a chronological event log, and the UBO panel to support a full-width expand mode with sober monochrome nodes,
-So that the cockpit signals what's happening without the noise of "No activity yet" and the UBO drag-correct interaction has the canvas it needs (depends on 12.1, 12.2).
+As a backend engineer who needs the cloud agent to call back into cockpit-api without infinite-looping,
+I want the existing intake endpoint split into a public router (which routes to cloud) and an internal callback (which runs the local supervisor),
+So that the cloud `run_case_intake` tool target is a stable URL distinct from the public route the cockpit-ui calls.
 
 **Acceptance Criteria:**
 
-**Given** the agent rail
-**When** it renders
-**Then** the top ~72px row is a horizontal status strip of 8 agent face chips (Story 4-3 SVGs reused) in fixed order: Case Supervisor · Document Intelligence · Entity Verification · UBO Graph · Screening · Risk Scoring · Writing · Cockpit Chat
-**And** each chip is a 56px square with a 4px ring keyed to state (`idle` / `running` pulsing claret / `complete` sage check / `error` rose outline)
-**And** beneath the strip, an event log subscribes to the existing SSE feed (Story 4-6) and renders newest-first rows of `<time> · <agent> · <event>` with a 2px per-agent left rule
-**And** a chevron toggle collapses the rail from 360px to 56px (vertical face-chip stack, no labels, no event log); click a collapsed chip → expand and scroll to that agent's most recent event
-**And** when any agent is `running`, idle chips dim to 70%; otherwise all are 100%
-**And** the existing flat `AgentCopilotPane` 8-row pane is fully replaced; tests are updated
+**Given** `apps/cockpit-api/src/cockpit_api/routers/cases.py`
+**When** the routes are reorganised
+**Then** the existing `POST /v1/cases/{case_id}/intake` is renamed `POST /v1/cases/{case_id}/_intake-impl` (the cloud-callback target) and keeps its current `CaseSupervisor.run_intake` body verbatim
+**And** a new `POST /v1/cases/{case_id}/intake` is created as the public router (covered in Story 13.3); for this story it can be a thin pass-through that delegates to `_intake-impl` so existing tests stay green
+**And** both routes return the same `CaseIntakeOutcome` shape; OpenAPI spec regenerates cleanly via `make adk-spec`
 
-**Given** the UBO section
-**When** an `Expand` toggle in the section header is clicked
-**Then** the UBO canvas grows to 100% canvas-row width, the Identity stub above collapses to a one-line marker, and the agent rail collapses to 56px
-**And** the expanded canvas is at least 800px tall to give react-flow layout room
-**And** a `Collapse` toggle returns to default layout
+**Given** the cloud `case_supervisor` agent's `run_case_intake` OpenAPI tool spec at `apps/agents/src/agents/registry/case_supervisor/openapi.yaml`
+**When** the spec is regenerated
+**Then** the tool's path points at `/v1/cases/{case_id}/_intake-impl`, not `/v1/cases/{case_id}/intake`; `make adk-register` re-imports the spec to the cloud tenant
+**And** the cloud agent's `agent.yaml` instructions are updated to reference the renamed tool by its tool name (no path leakage in prompts)
 
-**Given** UBO node and edge styling
-**When** the canvas renders
-**Then** nodes are 120×44 rounded rectangles on `paper` with hairline `ink-200` border, 16px monogram + name (`text-body 500`) + identifier (`text-micro ink-500`); per-node `ProvenanceIndicator` is preserved at 12px in a corner
-**And** flagged nominee/shell nodes get a 2px `accent-amber` left border (no fill change); the previous "MD/D/ND/%/%" node-adjacent labels are removed
-**And** edge labels render as 16px `text-caption` tabular pills at the edge midpoint via `EdgeLabelRenderer` (no node overlap)
-**And** officer-corrected edges are `ink-700` 1.5px solid; system-derived edges are `ink-400` 1px; nominee-suspected edges add an amber dot at the source endpoint
-**And** during react-flow layout, a 3-rect skeleton renders instead of the previous label-without-edges flicker
-**And** the Story 5-5 drag-correct learning-event handler still fires after the refactor (regression test)
-
-**Given** test coverage
+**Given** existing tests at `apps/cockpit-api/tests/test_cases_intake_route.py` and `apps/cockpit-api/tests/test_cases_intake_get_route.py`
 **When** `make test` runs
-**Then** new tests cover strip-chip-order, collapse-toggle width, event-log ordering, expand-collapse coupling, edge styling differentiation, and drag-correct regression
-**And** reference screenshots are committed under `__visual__/12-4-{agent-strip,agent-collapsed,ubo-default,ubo-expanded}.png`
+**Then** all existing tests pass against the new internal route (URL update only); a new test asserts the public `/intake` and internal `/_intake-impl` both reach the same supervisor and return identical outcomes for a fixture case
+**And** `make lint` passes; no agent or supervisor code changed in this story
 
-### Story 12.5: Decision drawer and Approvals/Regulator route scaffolds
+### Story 13.3: Cloud-routed Process now endpoint + tool-call result parsing
 
-As an officer who needs the commit moment to be visible, and as a presenter switching to Team Lead or Regulator roles mid-demo,
-I want a sticky bottom decision drawer that surfaces on `decision_ready` cases and designed empty states for the Approvals and Regulator Lens routes,
-So that the canvas no longer terminates at the risk panel and the role-switch demo doesn't bottom out at literal placeholder text (depends on 12.1, 12.2).
+As an analyst clicking Process now,
+I want the cockpit-api to invoke the cloud `case_supervisor` agent (which then calls back into cockpit-api as a registered tool) and return the typed intake outcome to the cockpit-ui,
+So that the headline flow demonstrably runs through cloud watsonx Orchestrate end-to-end.
 
 **Acceptance Criteria:**
 
-**Given** an open case
-**When** `case.state === 'decision_ready'`
-**Then** a sticky `DecisionDrawer` renders anchored above the StatusBar at full viewport width
-**And** for any other state (`intake_running` / `awaiting_docs` / `approved` / `declined` / `escalated`) the drawer is **not** rendered
+**Given** the public `POST /v1/cases/{case_id}/intake` route from Story 13.2
+**When** the route handler runs (in cloud mode — see Story 13.4)
+**Then** it calls `OrchestrateClient.invoke_agent(WXO_AGENT_ID, f"Process case {case_id}")`
+**And** it inspects the returned `AgentChatReply.tool_calls`, finds the `run_case_intake` call, and validates its output JSON against the `CaseIntakeOutcome` schema; the parsed outcome is returned to the cockpit-ui as the route's response body
+**And** if the cloud reply contains no `run_case_intake` tool call (the LLM mis-routed the request), the route raises HTTP 502 with `detail` describing the missing tool call; the assistant text is included for diagnosis
 
-**Given** the drawer is collapsed (52px tall)
-**When** it renders
-**Then** it shows: `Decision ready` ribbon (`signal-amber` `text-caption 600` uppercase) · `Decision · <case name>` (`text-body 500`, truncated) · `~3 minutes to draft` (`text-caption ink-500`) · `Defer` ghost button · `Draft rationale` filled `accent-claret` button · chevron-up to expand
+**Given** the cloud agent's chat reply
+**When** parsing
+**Then** there is a single canonical helper `extract_intake_outcome(reply: AgentChatReply) -> CaseIntakeOutcome` in `cockpit_api/services/orchestrate_client.py` that handles tool-call extraction; tested independently
+**And** the helper is robust to multiple tool calls in one reply (e.g. cloud agent calls `list_cases` first then `run_case_intake`) — picks the `run_case_intake` call, ignores the rest
 
-**Given** the drawer is expanded (320px tall, via chevron-up or `⌘↓`)
-**When** it renders
-**Then** the top section header reads `Rationale draft` (`text-h3`)
-**And** a 200px-tall `ink-200` dashed-border placeholder centers the text `Rationale drafting surface ships in Epic 7 (Story 7.1: DecisionZone with Tiptap editor)` with a link to the story file
-**And** the `Draft rationale` action is disabled with tooltip `Wired in Epic 7`
-**And** `Esc` or another `⌘↓` collapses the drawer
+**Given** the route returns
+**When** observed end-to-end
+**Then** the existing SSE flow (`agent.state_changed`, `case.state_changed`) still fires from inside `_intake-impl` and the cockpit-ui rail/panels update as today; the cloud round-trip adds latency but does not change SSE behavior
+**And** the cockpit-api log records one structured line per cloud call with: `case_id`, cloud message id, thread id, tool calls seen, total elapsed ms
 
-**Given** the drawer plane
-**When** rendered
-**Then** it has a top hairline `ink-200` divider plus an `ink-900` 4% box-shadow (12px blur, no offset) so it reads as a separate plane above the canvas
-**And** the canvas's `padding-bottom` increases by drawer-height + StatusBar height so scrolling does not hide content
-**And** drawer state is URL-persisted via TanStack Router (`?drawer=expanded`) — default `collapsed`
-**And** the Story 12.2 reserved `<section id="section-decision">` updates: when the drawer renders, the section caption reads `See the bottom drawer for decision tools.`; otherwise `This case is not yet ready for decision. Pending: <reason>`
-
-**Given** `routes/approvals.tsx`
-**When** the route renders
-**Then** the literal `Story 10-1 will populate this.` text is removed
-**And** the page shows a left-aligned `text-h1` serif heading `Approvals` + subline + a `signal-amber` 1px underline beneath the user-switcher (Team Lead role accent applied by the Header component)
-**And** three top-line summary cards render (`Pending approvals` · `Approved today` · `Escalated`) each with a `text-display 0` numeric and `Wired in Story 10-1` footnote
-**And** a single empty-state panel below the cards has a disabled `Configure approval rules` CTA with the same footnote tooltip
-**And** the existing role gate (Team Lead only) is preserved unchanged
-
-**Given** `routes/regulator-lens.tsx`
-**When** the route renders
-**Then** the literal `Story 9-3 will populate this.` text is removed
-**And** the page shows a left-aligned `text-h1` serif heading `Regulator Lens` + subline + an `ink-700` 1px underline beneath the user-switcher (Regulator role accent applied by the Header component)
-**And** the page background shifts to `ink-50` (slightly darker than `paper`) to suggest audit framing
-**And** a top strip reads `Audit trail · 1,247 ledger entries · last sealed <static placeholder timestamp> · hash chain valid` (numbers hardcoded for the demo — this story does not wire to live ledger state)
-**And** three placeholder column cards render (`Cases under review` · `Trail timeline` · `Export bundle`) each footed with `Wired in Story 9-3`
-**And** the existing role gate (Regulator only) is preserved unchanged
-
-**Given** test coverage
+**Given** new tests at `apps/cockpit-api/tests/test_cases_intake_cloud_route.py`
 **When** `make test` runs
-**Then** new tests cover drawer-state-gating, expand/collapse via keyboard and chevron, canvas-padding-no-overlap, the three approvals summary cards with footnotes, and the regulator audit strip + three placeholder columns
-**And** reference screenshots are committed under `__visual__/12-5-{drawer-collapsed,drawer-expanded,approvals,regulator-lens}.png`
+**Then** tests use a stub `OrchestrateClient` to assert: success path returns the outcome from the tool call; missing tool call → 502; multiple tool calls → correct one picked; orchestrate client raises → route returns 502 with truncated upstream detail; mypy strict passes
+
+### Story 13.4: Cloud-mode env toggle + local-fallback path + UI latency affordance
+
+As a developer running the demo without the tunnel up,
+I want a single env flag that selects between cloud-routed and local-Python intake,
+So that local development and offline demos still work, and the slower cloud round-trip has a UI affordance that signals work-in-progress.
+
+**Acceptance Criteria:**
+
+**Given** `cockpit_api.config.Settings`
+**When** loaded
+**Then** a new field `intake_runtime: Literal["cloud", "local"]` reads from env `INTAKE_RUNTIME` (default `"local"` for safety; the demo overrides via `.env`)
+**And** the public `POST /v1/cases/{case_id}/intake` route from Story 13.3 dispatches on this setting: `cloud` → cloud-routed path; `local` → direct call to the supervisor (the `_intake-impl` body)
+**And** `INTAKE_RUNTIME=cloud` with missing/invalid `WXO_*` config raises a startup-time error with a one-line remediation hint (don't surface to the analyst at click time)
+
+**Given** an automatic fallback policy
+**When** `INTAKE_RUNTIME=cloud` is set but a cloud invocation fails (timeout, IAM failure, missing tool call, 5xx)
+**Then** if env `INTAKE_CLOUD_FALLBACK=true` (default `true`), the route logs a warning and silently falls back to the local supervisor for that one request; the cockpit-ui sees a successful outcome and a header `X-Intake-Runtime: local-fallback` for diagnosis
+**And** if `INTAKE_CLOUD_FALLBACK=false`, the route returns 502 with the original cloud failure surfaced; the analyst sees the `Processing failed` UI from before the fix
+
+**Given** the cockpit-ui's Process now button at `apps/cockpit-ui/src/routes/cases.$caseId.tsx`
+**When** the user clicks it and the request is in flight
+**Then** the button replaces its label with `Processing… (cloud)` if the response carries `X-Intake-Runtime: cloud`, `Processing… (local)` otherwise — chosen at response time, the in-flight label remains generic `Processing…`
+**And** if the request takes longer than 3 seconds, an inline subline appears next to the button: "Cloud round-trip can take 30–60s. The agent rail will populate as each agent completes." — this affordance appears on first use and is not persistent UI
+
+**Given** `make test`
+**When** it runs
+**Then** new tests cover the env-toggle dispatch (cloud vs local), the auto-fallback path (cloud throws → local runs → 200 with `X-Intake-Runtime` header), the no-fallback path (cloud throws → 502), and the 3-second affordance (vitest fake timer); `make lint` passes
+
+**Given** the project README
+**When** updated
+**Then** `Documentation/README.md` (the overview) gains a one-paragraph note in the "How does all this work?" section explaining the cloud vs local intake runtime split and the env vars that control it
+**And** `README.md` (the repo root) gains the new env vars in the local-development setup section
 
 ---
 
@@ -2985,4 +2911,4 @@ So that the canvas no longer terminates at the risk panel and the role-switch de
 
 **Total: 116 stories across 11 epics (bank-buyer scope).** Each independently completable, each contributing to a user-value-focused epic, no forward dependencies within an epic.
 
-> **Note:** This summary table reflects the original bank-buyer scope. Epic 12 (Cockpit Visual Refresh, 5 stories, demo-scope only, added 2026-05-08) is **not** included in this 116-count — it is purely a demo-scope addition. For the active demo-scope counts, see the *Active scope summary* near the top of this document and `Documentation/implementation-artifacts/sprint-status.yaml`.
+> **Note:** This summary table reflects the original bank-buyer scope. Epic 13 (Cloud Orchestrate Runtime Path for Intake, 4 stories, demo-scope only, added 2026-05-08) is **not** included in this 116-count — it is a demo-scope addition. Epic 12 (Cockpit Visual Refresh) was added then removed the same day after the visual register was implemented directly in the cockpit. For the active demo-scope counts, see the *Active scope summary* near the top of this document and `Documentation/implementation-artifacts/sprint-status.yaml`.

@@ -29,8 +29,29 @@ export function subscribeToCase(
   const url = `${base}/v1/cases/${encodeURIComponent(caseId)}/stream?as=${encodeURIComponent(userId)}`;
   const es = new ESCtor(url);
 
-  es.addEventListener('agent.state_changed', () => {
+  es.addEventListener('agent.state_changed', (e: MessageEvent) => {
     void queryClient.invalidateQueries({ queryKey: ['cases', caseId, 'agent-mesh-state'] });
+    // Also invalidate the per-agent panel data so panels render in lockstep
+    // with the rail's "Done" pill. Without this, panels keep their stale
+    // cache until React Query's staleTime expires (10–30s) — looking
+    // exactly like a stuck spinner under a "Done" pill.
+    let agentSlug: string | null = null;
+    try {
+      const parsed = e.data ? (JSON.parse(e.data as string) as { agent_slug?: unknown }) : null;
+      if (parsed && typeof parsed.agent_slug === 'string') agentSlug = parsed.agent_slug;
+    } catch {
+      // Non-JSON payload — skip per-agent invalidation, the rail already
+      // refetched above.
+    }
+    if (agentSlug) {
+      void queryClient.invalidateQueries({ queryKey: ['cases', caseId, 'intake', agentSlug] });
+      // Risk panel + queue rail also reflect risk_band changes when
+      // risk_scoring lands; cheap to invalidate broader keys.
+      if (agentSlug === 'risk_scoring') {
+        void queryClient.invalidateQueries({ queryKey: ['case', caseId] });
+        void queryClient.invalidateQueries({ queryKey: ['cases'] });
+      }
+    }
   });
   es.addEventListener('case.state_changed', () => {
     void queryClient.invalidateQueries({ queryKey: ['case', caseId] });

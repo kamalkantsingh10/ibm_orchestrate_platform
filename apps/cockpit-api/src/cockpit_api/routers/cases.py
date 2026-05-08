@@ -33,7 +33,7 @@ from contracts.screening import ScreeningAgentOutput
 from contracts.sse import SseEvent
 from contracts.ubo import UBOGraph
 from contracts.users import User
-from contracts.writing import DraftedRationale
+from contracts.writing import DraftedRationale, EddMemoOutput
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Path, Query, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -368,6 +368,42 @@ async def get_writing_intake(
         ) from exc
 
 
+@router.get(
+    "/{case_id}/intake/writing_edd_memo",
+    response_model=EddMemoOutput,
+    dependencies=[Depends(get_current_user)],
+    summary="Get the Writing agent's EDD memo for a case",
+    description=(
+        "Story 8.3 — returns the typed `EddMemoOutput` produced by the "
+        "Writing agent in `edd_memo` mode. 404 if the case doesn't "
+        "exist OR if the EDD memo hasn't been generated yet (the memo is "
+        "produced post-commit on `escalate_to_edd` outcomes)."
+    ),
+)
+async def get_writing_edd_memo_intake(
+    case_id: CaseIdPath,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> EddMemoOutput:
+    from pydantic import ValidationError  # noqa: PLC0415
+
+    from cockpit_api.repositories.intake_repo import IntakeRepo  # noqa: PLC0415
+
+    await case_service.get_case(session, case_id)
+    row = await IntakeRepo.get_one(session, case_id, "writing_edd_memo")
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"EDD memo has not yet been generated for case {case_id!r}",
+        )
+    try:
+        return EddMemoOutput.model_validate(row)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"EDD memo data corrupt: {exc}",
+        ) from exc
+
+
 # ───────────── Story 7.7 — POST /v1/cases/{case_id}/decisions ─────────────
 
 
@@ -395,11 +431,15 @@ async def post_decision(
 ) -> CommitDecisionResponse:
     from cockpit_api.main import app as _app  # noqa: PLC0415
     from cockpit_api.services.decision_service import (  # noqa: PLC0415
+        BrokenCitationsError,
         CaseNotFoundError,
         DecisionConflictError,
         commit_decision,
     )
-    from cockpit_api.services.ledger_service import get_ledger_writer  # noqa: PLC0415
+    from cockpit_api.services.ledger_service import (  # noqa: PLC0415
+        get_ledger_reader,
+        get_ledger_writer,
+    )
     from cockpit_api.services.sse_registry import publish_safe  # noqa: PLC0415
 
     timer = getattr(_app.state, "decision_timer", None)
@@ -408,6 +448,27 @@ async def post_decision(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="decision timer not initialised",
         )
+
+    # Story 8.3 — wire the EDD memo trigger so the supervisor's
+    # `run_writing_edd_memo` fires post-commit on `escalate_to_edd`.
+    # Imports are deferred (path-dep on agents).
+    from contextlib import asynccontextmanager  # noqa: PLC0415
+
+    from agents.supervisor.case_supervisor import CaseSupervisor  # noqa: PLC0415
+
+    from cockpit_api.db.session import get_sessionmaker  # noqa: PLC0415
+
+    factory = get_sessionmaker()
+
+    @asynccontextmanager
+    async def _factory() -> AsyncIterator[AsyncSession]:
+        async with factory() as s:
+            yield s
+
+    async def _edd_memo_trigger(target_case_id: str) -> None:
+        supervisor = CaseSupervisor(session_factory=_factory)
+        await supervisor.run_writing_edd_memo(target_case_id)
+
     try:
         return await commit_decision(
             session=session,
@@ -417,11 +478,24 @@ async def post_decision(
             writer=get_ledger_writer(),
             sse_publish=publish_safe,
             timer=timer,
+            edd_memo_trigger=_edd_memo_trigger,
+            citation_reader=get_ledger_reader(),
         )
     except CaseNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     except DecisionConflictError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except BrokenCitationsError as exc:
+        # Story 8.4 / AC #2 — refuse the commit with a typed body the
+        # cockpit-ui can parse (`error_code: "broken_citations"` plus
+        # the per-token failure reasons).
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={
+                "error_code": "broken_citations",
+                "broken": [b.model_dump(mode="json") for b in exc.broken],
+            },
+        ) from exc
 
 
 # ───────────── Story 7.5 — decision undo timer view + undo endpoint ─────────────

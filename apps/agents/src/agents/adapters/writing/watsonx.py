@@ -18,7 +18,7 @@ import os
 from typing import Any
 
 import httpx
-from contracts.writing import CitedClaim
+from contracts.writing import CitedClaim, EddMemoSections
 
 from agents.adapters.writing.base import RawRationaleDraft, WritingLLMError
 from agents.supervisor.action_decorator import (
@@ -67,6 +67,20 @@ class WatsonxWritingLLM:
         except httpx.HTTPError as exc:
             raise WritingLLMError(f"watsonx call failed: {exc}") from exc
         return _parse_response(raw)
+
+    async def draft_edd_memo(
+        self,
+        *,
+        rendered_prompt: str,
+    ) -> EddMemoSections:
+        # Story 8.3 ships the EDD memo path on the fixture provider only.
+        # The watsonx EDD prompt + parser lands later — until then, fail
+        # loud so a misconfigured WRITING_LLM_PROVIDER=watsonx demo
+        # surfaces immediately rather than silently.
+        raise NotImplementedError(
+            "WatsonxWritingLLM.draft_edd_memo is not yet implemented; "
+            "set WRITING_LLM_PROVIDER=fixture for EDD drafting."
+        )
 
     async def _call(self, prompt: str) -> str:
         url = f"{self._endpoint}/ml/v1/text/generation?version=2024-05-01"

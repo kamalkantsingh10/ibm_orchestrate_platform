@@ -201,3 +201,117 @@ async def test_delete_404_when_missing(engine_with_app: AsyncEngine) -> None:
             headers=HEADERS,
         )
     assert resp.status_code == 404
+
+
+# ─── Story 8.5 — evidence routes ─────────────────────────────────────────────
+
+
+async def test_post_document_with_kind_evidence_writes_to_evidence_subdir(
+    engine_with_app: AsyncEngine, tmp_path: Path
+) -> None:
+    case = await _seed_case(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("note.txt", b"plain text body", "text/plain")},
+        )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["uploaded"][0]["filename"] == "note.txt"
+    # Evidence is NOT added to customer_metadata.extra.document_refs.
+    assert "note.txt" not in body["document_refs"]
+    # File lives under <uploads_root>/<case_id>/evidence/note.txt
+    expected = tmp_path / "uploads" / case.id / "evidence" / "note.txt"
+    assert expected.exists()
+
+
+async def test_post_document_with_kind_evidence_accepts_image_extension(
+    engine_with_app: AsyncEngine, tmp_path: Path
+) -> None:
+    case = await _seed_case(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("photo.png", b"\x89PNG\r\n\x1a\n...", "image/png")},
+        )
+    assert resp.status_code == 200, resp.text
+    expected = tmp_path / "uploads" / case.id / "evidence" / "photo.png"
+    assert expected.exists()
+
+
+async def test_post_document_with_kind_evidence_rejects_disallowed_extension(
+    engine_with_app: AsyncEngine,
+) -> None:
+    case = await _seed_case(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("malware.exe", b"MZ\x90\x00...", "application/octet-stream")},
+        )
+    assert resp.status_code == 400
+
+
+async def test_get_evidence_lists_uploaded_evidence_newest_first(
+    engine_with_app: AsyncEngine,
+) -> None:
+    case = await _seed_case(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("first.txt", b"first", "text/plain")},
+        )
+        await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("second.txt", b"second", "text/plain")},
+        )
+        resp = await client.get(f"/v1/cases/{case.id}/evidence", headers=HEADERS)
+    assert resp.status_code == 200
+    items = resp.json()["items"]
+    # Newest first per Story 8.5 / AC #1.
+    assert [item["filename"] for item in items[:2]] == ["second.txt", "first.txt"]
+
+
+async def test_delete_evidence_removes_file(engine_with_app: AsyncEngine, tmp_path: Path) -> None:
+    case = await _seed_case(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("delete_me.txt", b"trash", "text/plain")},
+        )
+        resp = await client.delete(f"/v1/cases/{case.id}/evidence/delete_me.txt", headers=HEADERS)
+    assert resp.status_code == 204
+    assert not (tmp_path / "uploads" / case.id / "evidence" / "delete_me.txt").exists()
+
+
+async def test_get_evidence_download_returns_file_body(
+    engine_with_app: AsyncEngine,
+) -> None:
+    case = await _seed_case(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            f"/v1/cases/{case.id}/documents",
+            params={"kind": "evidence"},
+            headers=HEADERS,
+            files={"files": ("memo.txt", b"the body", "text/plain")},
+        )
+        resp = await client.get(f"/v1/cases/{case.id}/evidence/memo.txt/download")
+    assert resp.status_code == 200
+    assert resp.content == b"the body"
