@@ -1,0 +1,8 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: Writing — pen nib drawing a horizontal line.
+     viewBox 64×64. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M40 14 L52 26 L26 52 L14 52 L14 40 Z" />
+  <line x1="38" y1="16" x2="48" y2="26" />
+  <line x1="20" y1="58" x2="56" y2="58" />
+</svg>

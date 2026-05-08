@@ -1,0 +1,25 @@
+{
+  "case": {
+    "customer_metadata": {
+      "customer_name": "Shree Venkat"
+    },
+    "state": "decision_ready"
+  },
+  "extracted_fields": [
+    { "field_name": "name" },
+    { "field_name": "pan" },
+    { "field_name": "aadhaar_last4" },
+    { "field_name": "address" }
+  ],
+  "entity_status": null,
+  "ubo_summary": null,
+  "screening_summary": "1 low-confidence hit, auto-dismissed; 0 open",
+  "risk_summary": "total 28/100, band low; income 8, geography 6, structure 4 dominate",
+  "ledger_ids": {
+    "document_intelligence": "led_01SHREE3HJKMNPQRSTVWXYZ901",
+    "entity_verification": "",
+    "ubo_graph": "",
+    "screening": "led_01SHREE5HJKMNPQRSTVWXYZ903",
+    "risk_scoring": "led_01SHREE6HJKMNPQRSTVWXYZ904"
+  }
+}

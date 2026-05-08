@@ -19,6 +19,34 @@ This story explicitly relaxes the bank-buyer NFR-RI5 ≤30 min target to **≤60
 
 See `Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md` § "Stack changes for demo" and `architecture.md#Demo Scope Addendum (2026-04-29)` for the full re-scope context.
 
+## Cloud Orchestrate addendum (2026-05-07)
+
+The agent runtime moved from local ADK Developer Edition to **cloud watsonx Orchestrate** (see `architecture.md#Agent Runtime Update (2026-05-07)`). This story's ACs hold; the bootstrap path inside the 60-minute budget changes.
+
+### Bootstrap path delta
+
+| Step | Before (Developer Edition) | After (cloud Orchestrate) |
+|---|---|---|
+| Agent runtime up | `make adk-up` (~10–15 min image pull on first run) | One-time tenant onboarding: `orchestrate env add --name cloud --url <tenant-url>` + `orchestrate env activate cloud` (~5–10 min including IBM Cloud signup if needed) |
+| Tunnel | n/a — Developer Edition reaches host via `host.docker.internal` | `ngrok http 8000` left running in a separate terminal |
+| Register tools/agents | `make adk-register` | `make tunnel-sync` (calls `adk-spec` with `COCKPIT_API_PUBLIC_URL` set to the live ngrok URL, then `adk-register`) |
+| Chat | `make adk-chat` → `localhost:3000` | Open the cloud Orchestrate tenant chat UI |
+
+### Implications for ACs in this story
+
+- **AC4 (`make verify`):** check #6 (agent-runtime reachability) was originally scoped to the Developer Edition's `orchestrate server status`. **Updated 2026-05-07** to probe the ngrok admin API (`http://127.0.0.1:4040/api/tunnels`) first and fall back to the Developer Edition status check; either signal counts as healthy. CI=1 still skips. The `tools/scripts/test_verify_demo.sh` harness still passes (it runs every case with `CI=1`).
+- **AC10 (clone-to-demo ≤60 min):** still met. Net change: `make adk-up` image pull (~15 min) is replaced by tenant onboarding (~5–10 min) plus a one-time ngrok auth-token install (~1 min). The new total is comfortably inside 60 min for a fresh user.
+- **`infra/compose/.gitkeep`:** preserved unchanged. Developer Edition fallback still works for offline development; the directory is still useful for a future `orchestrate server eject` capture.
+- **AC #5 CI `demo-verify` job:** unaffected — it already runs with `CI=1` (which skipped, and continues to skip, the agent-runtime check).
+
+### Ngrok URL fragility
+
+The free ngrok tier rotates the public URL on every reconnect. Each rotation invalidates every `openapi.yaml` `servers:` block in the registry. `make tunnel-sync` is the canonical recovery path: it reads the live URL from ngrok's local admin API (`http://127.0.0.1:4040/api/tunnels`), regenerates every spec, and re-imports them to the active Orchestrate env. Operators on the paid tier with a reserved subdomain can run `tunnel-sync` once and forget it.
+
+### Status
+
+Story remains in `review` — ACs are satisfied with the addendum noted. AC4's agent-runtime check has been updated to probe ngrok first, Developer Edition second; no open follow-ups.
+
 ## Acceptance Criteria
 
 1. **AC1 — `docker-compose.yml` is simplified to the demo's actual needs.** The Postgres, Redis, LocalStack, and Vault Transit services are **removed**. (SQLite needs no docker; in-memory state needs no Redis; local filesystem needs no LocalStack; no HSM means no Vault.) The file either becomes a minimal stub documenting that "no docker infra is required for the demo" OR is deleted entirely with a note in the README. **Recommended: delete the file** since an empty / stub compose file invites confusion. The `infra/compose/postgres.init.sql` file is also removed.

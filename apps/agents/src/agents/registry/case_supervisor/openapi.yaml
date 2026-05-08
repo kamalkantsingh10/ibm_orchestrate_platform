@@ -9,8 +9,9 @@ info:
     \ on agent failure."
 servers:
   - url: http://host.docker.internal:8000
-    description: Cockpit API on the host (resolved from inside the Developer Edition
-      Docker network).
+    description: Cockpit API endpoint reachable by the Orchestrate runtime. For cloud
+      Orchestrate, this is a public ngrok tunnel pointing at the developer's localhost:8000
+      (refresh via `make tunnel-sync`). For local Developer Edition, this is host.docker.internal.
 paths:
   /v1/cases/{case_id}/intake:
     post:
@@ -32,14 +33,6 @@ paths:
             description: Case ID (`case_<ULID>`)
             title: Case Id
           description: Case ID (`case_<ULID>`)
-        - name: X-Cockpit-Demo-User
-          in: header
-          required: false
-          schema:
-            anyOf:
-              - type: string
-              - type: 'null'
-            title: X-Cockpit-Demo-User
       responses:
         '200':
           description: Successful Response
@@ -55,6 +48,193 @@ paths:
                 $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
+    ActorType:
+      type: string
+      enum:
+        - agent
+        - officer
+        - system
+      title: ActorType
+      description: "Who originated the ledger entry. See architecture.md \xA7 P4."
+    AgentActionLedgerEntry:
+      properties:
+        kind:
+          type: string
+          const: agent_action
+          title: Kind
+          default: agent_action
+        agent_id:
+          type: string
+          minLength: 1
+          title: Agent Id
+        model_id:
+          type: string
+          minLength: 1
+          title: Model Id
+          default: stub
+        prompt_template_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Prompt Template Id
+        prompt_hash:
+          anyOf:
+            - type: string
+              pattern: ^[a-f0-9]{64}$
+            - type: 'null'
+          title: Prompt Hash
+        tool_calls:
+          items:
+            additionalProperties: true
+            type: object
+          type: array
+          title: Tool Calls
+        input:
+          additionalProperties: true
+          type: object
+          title: Input
+        output:
+          anyOf:
+            - additionalProperties: true
+              type: object
+            - type: 'null'
+          title: Output
+        started_at:
+          type: string
+          format: date-time
+          title: Started At
+        completed_at:
+          type: string
+          format: date-time
+          title: Completed At
+        duration_ms:
+          type: integer
+          minimum: 0.0
+          title: Duration Ms
+        status:
+          type: string
+          enum:
+            - ok
+            - error
+          title: Status
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorInfo'
+            - type: 'null'
+        reasoning_trace:
+          anyOf:
+            - $ref: '#/components/schemas/ReasoningTrace'
+            - type: 'null'
+      type: object
+      required:
+        - agent_id
+        - input
+        - started_at
+        - completed_at
+        - duration_ms
+        - status
+      title: AgentActionLedgerEntry
+      description: Typed payload for ``agent.completed``/``agent.failed`` ledger entries.
+    AgentMeshAgentEntry:
+      properties:
+        agent_slug:
+          $ref: '#/components/schemas/AgentSlug'
+        state:
+          $ref: '#/components/schemas/AgentMeshAgentState'
+        last_activity_at:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+          title: Last Activity At
+        last_action_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Last Action Id
+      type: object
+      required:
+        - agent_slug
+        - state
+      title: AgentMeshAgentEntry
+      description: Per-agent snapshot row.
+    AgentMeshAgentState:
+      type: string
+      enum:
+        - idle
+        - working
+        - complete
+        - blocked
+        - needs_input
+      title: AgentMeshAgentState
+      description: Coarse-grained state surfaced to the cockpit pane.
+    AgentMeshSnapshot:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        agents:
+          items:
+            $ref: '#/components/schemas/AgentMeshAgentEntry'
+          type: array
+          title: Agents
+      type: object
+      required:
+        - case_id
+        - agents
+      title: AgentMeshSnapshot
+      description: Response model for ``GET /v1/cases/{case_id}/agent-mesh-state``.
+    AgentRerunResponse:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        agent_slug:
+          type: string
+          title: Agent Slug
+        agent_action_id:
+          type: string
+          title: Agent Action Id
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+        - case_id
+        - agent_slug
+        - agent_action_id
+        - status
+      title: AgentRerunResponse
+      description: 'Story 6.7 / AC #4 response shape for `POST /cases/.../agents/.../run`.'
+    AgentSlug:
+      type: string
+      enum:
+        - case-supervisor
+        - document-intelligence
+        - entity-verification
+        - ubo-graph
+        - screening
+        - risk-scoring
+        - writing
+        - cockpit-chat
+      title: AgentSlug
+      description: The eight MVP agents. Slug values mirror the registry directory
+        names.
+    Body_upload_documents_v1_cases__case_id__documents_post:
+      properties:
+        files:
+          items:
+            type: string
+            contentMediaType: application/octet-stream
+          type: array
+          title: Files
+      type: object
+      required:
+        - files
+      title: Body_upload_documents_v1_cases__case_id__documents_post
     CaseEnvelope:
       properties:
         id:
@@ -96,6 +276,10 @@ components:
               format: date-time
             - type: 'null'
           title: Closure Date
+        latest_decision:
+          anyOf:
+            - $ref: '#/components/schemas/CaseLatestDecision'
+            - type: 'null'
         _links:
           additionalProperties:
             anyOf:
@@ -157,6 +341,46 @@ components:
         - completed_at
       title: CaseIntakeOutcome
       description: Result envelope for one case-intake supervisor run.
+    CaseLatestDecision:
+      properties:
+        decision_id:
+          type: string
+          minLength: 1
+          title: Decision Id
+        outcome:
+          type: string
+          enum:
+            - approve
+            - decline
+            - approve_with_conditions
+            - escalate_to_edd
+          title: Outcome
+        sealed_ledger_entry_id:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Sealed Ledger Entry Id
+      type: object
+      required:
+        - decision_id
+        - outcome
+      title: CaseLatestDecision
+      description: "Per-case decision summary surfaced on ``GET /v1/cases/{case_id}``.
+
+
+        Story 7.6 / AC #5. ``sealed_ledger_entry_id`` is ``None`` while the
+
+        decision is still in the 120-second undo window (state
+
+        ``pending_seal``); populated once the seal-time ledger entry is
+
+        written. Story 7.7 owns the ``decisions`` table that backs this; the
+
+        envelope addition lands here so the cockpit-ui's
+
+        ``SealedIndicator`` can read the seal id without a second round-
+
+        trip."
     CaseListResponse:
       properties:
         items:
@@ -183,11 +407,177 @@ components:
       enum:
         - intake_scheduled
         - decision_ready
+        - pending_seal
         - committed
         - escalated
         - closed
       title: CaseState
       description: Lifecycle states. See ``ALLOWED_TRANSITIONS`` for the edge set.
+    CitedClaim:
+      properties:
+        text:
+          type: string
+          maxLength: 400
+          minLength: 1
+          title: Text
+        evidence_ledger_id:
+          type: string
+          maxLength: 30
+          minLength: 30
+          pattern: ^led_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Evidence Ledger Id
+      type: object
+      required:
+        - text
+        - evidence_ledger_id
+      title: CitedClaim
+      description: "One factual claim in the drafted rationale, paired with the
+
+        ledger entry that backs it. The LLM emits these in structured JSON;
+
+        the agent assembles them into HTML around each claim's text."
+    CockpitChatMessageAccepted:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        message_id:
+          type: string
+          title: Message Id
+        status:
+          type: string
+          title: Status
+      type: object
+      required:
+        - case_id
+        - message_id
+        - status
+      title: CockpitChatMessageAccepted
+      description: "Story 6.8 / AC #1 \u2014 202 response shape."
+    CockpitChatMessageRequest:
+      properties:
+        message:
+          type: string
+          maxLength: 2000
+          minLength: 1
+          title: Message
+        message_id:
+          type: string
+          maxLength: 64
+          minLength: 1
+          title: Message Id
+      type: object
+      required:
+        - message
+        - message_id
+      title: CockpitChatMessageRequest
+      description: "Story 6.8 / AC #1 \u2014 POST body for the cockpit-chat message\
+        \ route."
+    CockpitChatToolLedgerPayload:
+      properties:
+        kind:
+          type: string
+          const: cockpit_chat_tool
+          title: Kind
+          default: cockpit_chat_tool
+        tool_name:
+          type: string
+          enum:
+            - get_case
+            - get_reasoning_trace
+            - re_run_agent
+            - query_ledger
+          title: Tool Name
+        request_args:
+          additionalProperties: true
+          type: object
+          title: Request Args
+        result_summary:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Result Summary
+        duration_ms:
+          type: integer
+          minimum: 0.0
+          title: Duration Ms
+        status:
+          type: string
+          enum:
+            - ok
+            - error
+          title: Status
+        error:
+          anyOf:
+            - $ref: '#/components/schemas/ErrorInfo'
+            - type: 'null'
+      type: object
+      required:
+        - tool_name
+        - result_summary
+        - duration_ms
+        - status
+      title: CockpitChatToolLedgerPayload
+      description: "Typed ``LedgerEntry.payload`` arm for cockpit_chat tool invocations.\n\
+        \nStory 6.7. Every tool call from the Cockpit Chat agent \u2014\n`get_case`,\
+        \ `get_reasoning_trace`, `re_run_agent`, `query_ledger` \u2014\nwrites one\
+        \ of these. Architecture \xA7 P4 (tool calls ledgered) adapted\nfor the demo's\
+        \ chat agent. Tool routes use the\n``ledger_chat_tool_call`` async context\
+        \ manager (cockpit-api\nservices/cockpit_chat_ledger.py) to record entries."
+    CommitDecisionRequest:
+      properties:
+        outcome:
+          $ref: '#/components/schemas/DecisionOutcome'
+        conditions:
+          items:
+            type: string
+          type: array
+          maxItems: 10
+          title: Conditions
+        rationale_html:
+          type: string
+          maxLength: 20000
+          minLength: 20
+          title: Rationale Html
+      type: object
+      required:
+        - outcome
+        - rationale_html
+      title: CommitDecisionRequest
+      description: POST body for ``/v1/cases/{case_id}/decisions``.
+    CommitDecisionResponse:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        decision_id:
+          type: string
+          minLength: 1
+          title: Decision Id
+        case_state:
+          $ref: '#/components/schemas/CaseState'
+        seal_at:
+          type: string
+          format: date-time
+          title: Seal At
+        ledger_entry_id:
+          type: string
+          maxLength: 30
+          minLength: 30
+          pattern: ^led_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Ledger Entry Id
+      type: object
+      required:
+        - case_id
+        - decision_id
+        - case_state
+        - seal_at
+        - ledger_entry_id
+      title: CommitDecisionResponse
+      description: 201 response shape for ``POST /v1/cases/{case_id}/decisions``.
     ConfidenceBand:
       type: string
       enum:
@@ -197,6 +587,34 @@ components:
         - high
       title: ConfidenceBand
       description: Four-tier confidence banding. Wire format is snake_case.
+    ConfidenceWithRationale:
+      properties:
+        value:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Value
+        rationale:
+          type: string
+          maxLength: 400
+          minLength: 12
+          title: Rationale
+        band:
+          $ref: '#/components/schemas/ConfidenceBand'
+      type: object
+      required:
+        - value
+        - rationale
+        - band
+      title: ConfidenceWithRationale
+      description: 'Confidence float with an agent-emitted rationale string.
+
+
+        Used inside `ReasoningTrace.confidence_self_rating`. Re-usable by
+
+        future agents needing a richer "why this confidence?" signal than
+
+        `ProvenancedField[T]` provides.'
     CustomerMetadata:
       properties:
         customer_name:
@@ -232,6 +650,47 @@ components:
         demo-only fields without schema churn. Production code should prefer named
 
         fields over ``extra`` once the bank-buyer scope revives.'
+    DecisionOutcome:
+      type: string
+      enum:
+        - approve
+        - decline
+        - approve_with_conditions
+        - escalate_to_edd
+      title: DecisionOutcome
+      description: "The four mutually-exclusive decision outcomes \u2014 Story 7.9\
+        \ / AC #1.\n\nStory 7.7 declared this as a ``Literal``; promoting to ``StrEnum``\n\
+        keeps the wire format identical (Pydantic v2 serializes by value)\nand lets\
+        \ Python callers reach for ``DecisionOutcome.APPROVE``\ninstead of stringly-typed\
+        \ literals."
+    DecisionSealedPayload:
+      properties:
+        kind:
+          type: string
+          const: decision_sealed
+          title: Kind
+          default: decision_sealed
+        decision_id:
+          type: string
+          minLength: 1
+          title: Decision Id
+        outcome:
+          type: string
+          enum:
+            - approve
+            - decline
+            - approve_with_conditions
+            - escalate_to_edd
+          title: Outcome
+      type: object
+      required:
+        - decision_id
+        - outcome
+      title: DecisionSealedPayload
+      description: "Typed ``LedgerEntry.payload`` arm for the SYSTEM-emitted seal\
+        \ \u2014\nStory 7.7. Written by ``decision_service.seal_decision`` when\n\
+        Story 7.4's timer elapses; ``actor_type`` is ``SYSTEM`` and\n``actor_id``\
+        \ is ``platform``. Distinct from agent / officer entries."
     DocumentIntelligenceInput:
       properties:
         case_id:
@@ -274,6 +733,111 @@ components:
         are empty when the agent returns. The supervisor (Story 3-5) back-fills\n\
         them with the agent's own ledger-entry ID after ``@agent_action`` writes\n\
         the entry."
+    DraftedRationale:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        html:
+          type: string
+          minLength: 20
+          title: Html
+        paragraphs:
+          items:
+            type: string
+          type: array
+          maxItems: 4
+          minItems: 2
+          title: Paragraphs
+        cited_claims:
+          items:
+            $ref: '#/components/schemas/CitedClaim'
+          type: array
+          title: Cited Claims
+        model_id:
+          type: string
+          minLength: 1
+          title: Model Id
+        prompt_template_id:
+          type: string
+          const: rationale_draft_v1
+          title: Prompt Template Id
+          default: rationale_draft_v1
+      type: object
+      required:
+        - case_id
+        - html
+        - paragraphs
+        - model_id
+      title: DraftedRationale
+      description: "The Writing agent's output \u2014 a structured rationale with\n\
+        citations.\n\n``html`` is the renderable form for Tiptap (citation tokens\
+        \ already\nwrapped in ``<span data-ledger-id=\"\u2026\">\u2026</span>``).\
+        \ ``paragraphs``\nand ``cited_claims`` carry the structured signal for downstream\n\
+        analytics \u2014 they are persisted on the intake row but not surfaced\nin\
+        \ the demo UI."
+    EntityVerificationInput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        cin:
+          type: string
+          maxLength: 21
+          minLength: 21
+          pattern: ^[LU]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}$
+          title: Cin
+      type: object
+      required:
+        - case_id
+        - cin
+      title: EntityVerificationInput
+    EntityVerificationResult:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        cin:
+          type: string
+          title: Cin
+        mca_status:
+          $ref: '#/components/schemas/ProvenancedField_Literal__active____struck_off____dormant___'
+        mismatches:
+          items:
+            $ref: '#/components/schemas/FieldMismatch'
+          type: array
+          title: Mismatches
+      type: object
+      required:
+        - case_id
+        - cin
+        - mca_status
+      title: EntityVerificationResult
+    ErrorInfo:
+      properties:
+        type:
+          type: string
+          minLength: 1
+          title: Type
+        message:
+          type: string
+          maxLength: 500
+          title: Message
+      type: object
+      required:
+        - type
+        - message
+      title: ErrorInfo
+      description: Error metadata recorded on failure-path agent actions.
     ExtractedField:
       properties:
         field_name:
@@ -292,6 +856,39 @@ components:
         - document_ref
         - value
       title: ExtractedField
+    FieldMismatch:
+      properties:
+        field_name:
+          type: string
+          minLength: 1
+          title: Field Name
+        case_value:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Case Value
+        mca_value:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Mca Value
+        severity:
+          type: string
+          enum:
+            - info
+            - warning
+            - critical
+          title: Severity
+          default: warning
+        notes:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Notes
+      type: object
+      required:
+        - field_name
+      title: FieldMismatch
     HTTPValidationError:
       properties:
         detail:
@@ -301,6 +898,276 @@ components:
           title: Detail
       type: object
       title: HTTPValidationError
+    LearningEventInput:
+      properties:
+        edge_kind:
+          type: string
+          enum:
+            - owns
+            - director
+            - beneficial
+          title: Edge Kind
+        from_id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: From Id
+        original_to_id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: Original To Id
+        new_to_id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: New To Id
+        correction_tag:
+          type: string
+          enum:
+            - real_ubo
+            - nominee
+            - director
+            - removed
+          title: Correction Tag
+        evidence_note:
+          type: string
+          maxLength: 500
+          minLength: 1
+          title: Evidence Note
+        opt_in_for_retraining:
+          type: boolean
+          title: Opt In For Retraining
+          default: false
+      type: object
+      required:
+        - edge_kind
+        - from_id
+        - original_to_id
+        - new_to_id
+        - correction_tag
+        - evidence_note
+      title: LearningEventInput
+      description: POST body for ``/v1/cases/{case_id}/ubo/learning-events``.
+    LearningEventLedgerPayload:
+      properties:
+        kind:
+          type: string
+          const: learning_event
+          title: Kind
+          default: learning_event
+        edge_kind:
+          type: string
+          enum:
+            - owns
+            - director
+            - beneficial
+          title: Edge Kind
+        from_id:
+          type: string
+          minLength: 1
+          title: From Id
+        original_to_id:
+          type: string
+          minLength: 1
+          title: Original To Id
+        new_to_id:
+          type: string
+          minLength: 1
+          title: New To Id
+        correction_tag:
+          type: string
+          enum:
+            - real_ubo
+            - nominee
+            - director
+            - removed
+          title: Correction Tag
+        evidence_note:
+          type: string
+          title: Evidence Note
+        opt_in_for_retraining:
+          type: boolean
+          title: Opt In For Retraining
+      type: object
+      required:
+        - edge_kind
+        - from_id
+        - original_to_id
+        - new_to_id
+        - correction_tag
+        - evidence_note
+        - opt_in_for_retraining
+      title: LearningEventLedgerPayload
+      description: "Typed ``LedgerEntry.payload`` arm for officer-originated UBO corrections.\n\
+        \nStory 5.5. Lives here (not in ``contracts.learning_event``) to avoid a\n\
+        circular import between ledger \u2194 ubo \u2194 provenance \u2194 ledger.\
+        \ Node-id\nfields are typed as plain ``str`` here; pattern validation happened\n\
+        upstream at ``LearningEventInput``."
+    LearningEventResponse:
+      properties:
+        ledger_entry_id:
+          type: string
+          maxLength: 30
+          minLength: 30
+          pattern: ^led_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Ledger Entry Id
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+        - ledger_entry_id
+        - case_id
+        - recorded_at
+      title: LearningEventResponse
+      description: Server-side response after persisting + writing the ledger entry.
+    LedgerEntry:
+      properties:
+        id:
+          type: string
+          maxLength: 30
+          minLength: 30
+          pattern: ^led_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Id
+        actor_type:
+          $ref: '#/components/schemas/ActorType'
+        actor_id:
+          type: string
+          minLength: 1
+          title: Actor Id
+        case_id:
+          anyOf:
+            - type: string
+              maxLength: 31
+              minLength: 31
+              pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+            - type: 'null'
+          title: Case Id
+        action:
+          type: string
+          maxLength: 80
+          minLength: 1
+          title: Action
+        payload:
+          anyOf:
+            - $ref: '#/components/schemas/AgentActionLedgerEntry'
+            - $ref: '#/components/schemas/CockpitChatToolLedgerPayload'
+            - $ref: '#/components/schemas/LearningEventLedgerPayload'
+            - $ref: '#/components/schemas/OfficerDecisionUndonePayload'
+            - $ref: '#/components/schemas/OfficerDecisionCommittedPayload'
+            - $ref: '#/components/schemas/DecisionSealedPayload'
+            - additionalProperties: true
+              type: object
+          title: Payload
+        recorded_at:
+          type: string
+          format: date-time
+          title: Recorded At
+      type: object
+      required:
+        - id
+        - actor_type
+        - actor_id
+        - action
+        - recorded_at
+      title: LedgerEntry
+      description: "One append-only ledger event.\n\nThe writer overwrites ``id``\
+        \ and ``recorded_at`` server-side at\n``append`` time, so caller-supplied\
+        \ values are ignored. Pass any\npattern-valid ID and any tz-aware ``datetime``\
+        \ \u2014 they will be replaced."
+    ListResponse:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        items:
+          items:
+            $ref: '#/components/schemas/StoredDocumentResponse'
+          type: array
+          title: Items
+      type: object
+      required:
+        - case_id
+        - items
+      title: ListResponse
+      description: Reply to GET /documents.
+    OfficerDecisionCommittedPayload:
+      properties:
+        kind:
+          type: string
+          const: officer_decision_committed
+          title: Kind
+          default: officer_decision_committed
+        decision_id:
+          type: string
+          minLength: 1
+          title: Decision Id
+        outcome:
+          type: string
+          enum:
+            - approve
+            - decline
+            - approve_with_conditions
+            - escalate_to_edd
+          title: Outcome
+        conditions:
+          items:
+            type: string
+          type: array
+          title: Conditions
+        rationale_hash:
+          type: string
+          maxLength: 64
+          minLength: 64
+          title: Rationale Hash
+      type: object
+      required:
+        - decision_id
+        - outcome
+        - rationale_hash
+      title: OfficerDecisionCommittedPayload
+      description: "Typed ``LedgerEntry.payload`` arm for officer commits \u2014 Story\
+        \ 7.7.\n\nNo Ed25519 signature: the bank-buyer scope's signing primitive is\n\
+        cut from the demo per the 2026-04-29 re-scope. The audit anchor is\nthe ``rationale_hash``\
+        \ (SHA-256 hex of the raw ``rationale_html``\nUTF-8 bytes); changing the rationale\
+        \ post-hoc would invalidate the\nhash without rewriting the ledger entry."
+    OfficerDecisionUndonePayload:
+      properties:
+        kind:
+          type: string
+          const: officer_decision_undone
+          title: Kind
+          default: officer_decision_undone
+        decision_id:
+          type: string
+          minLength: 1
+          title: Decision Id
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 40
+          title: Reason
+      type: object
+      required:
+        - decision_id
+        - reason
+      title: OfficerDecisionUndonePayload
+      description: "Typed ``LedgerEntry.payload`` arm for officer undo events.\n\n\
+        Story 7.5. Officer hits Undo on a pending_seal decision; we cancel\nStory\
+        \ 7.4's timer, revert the case to ``decision_ready``, and write\none of these.\
+        \ The reason is required (\u2265 40 chars) so the audit\nrecord carries the\
+        \ why; NFR-T6 carries through demo scope."
     Provenance:
       properties:
         source_agent:
@@ -339,6 +1206,22 @@ components:
         - captured_at
       title: Provenance
       description: Per-datum provenance metadata.
+    ProvenancedField_Literal__active____struck_off____dormant___:
+      properties:
+        value:
+          type: string
+          enum:
+            - active
+            - struck_off
+            - dormant
+          title: Value
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+      type: object
+      required:
+        - value
+        - provenance
+      title: ProvenancedField[Literal['active', 'struck_off', 'dormant']]
     ProvenancedField_Union_str__int__float__bool__NoneType__:
       properties:
         value:
@@ -356,6 +1239,141 @@ components:
         - value
         - provenance
       title: ProvenancedField[Union[str, int, float, bool, NoneType]]
+    ProvenancedField_float_:
+      properties:
+        value:
+          type: number
+          title: Value
+        provenance:
+          $ref: '#/components/schemas/Provenance'
+      type: object
+      required:
+        - value
+        - provenance
+      title: ProvenancedField[float]
+    ReasoningTrace:
+      properties:
+        what_searched:
+          type: string
+          maxLength: 1000
+          minLength: 12
+          title: What Searched
+        what_hit:
+          type: string
+          maxLength: 2000
+          minLength: 12
+          title: What Hit
+        confidence_self_rating:
+          $ref: '#/components/schemas/ConfidenceWithRationale'
+        counterfactual:
+          type: string
+          maxLength: 600
+          minLength: 12
+          title: Counterfactual
+      type: object
+      required:
+        - what_searched
+        - what_hit
+        - confidence_self_rating
+        - counterfactual
+      title: ReasoningTrace
+      description: 'The 4-section, non-skippable reasoning trace.
+
+
+        Min-lengths are deliberate: nothing below ~12 chars is meaningful in
+
+        any of these slots; this is the contract enforcement that Innovation
+
+        #2 demands. The 600-char ceiling on counterfactual is shorter than
+
+        what_hit because the counterfactual is meant to be a sharp single
+
+        sentence, not a paragraph.'
+    RiskComponent:
+      properties:
+        name:
+          type: string
+          enum:
+            - country
+            - entity_type
+            - ownership_clarity
+            - screening
+            - adverse_media
+          title: Name
+        value:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Value
+        weight:
+          type: number
+          maximum: 1.0
+          minimum: 0.0
+          title: Weight
+        contribution:
+          type: number
+          maximum: 100.0
+          minimum: 0.0
+          title: Contribution
+        rationale:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Rationale
+      type: object
+      required:
+        - name
+        - value
+        - weight
+        - contribution
+        - rationale
+      title: RiskComponent
+    RiskScore:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        total:
+          type: integer
+          maximum: 100.0
+          minimum: 0.0
+          title: Total
+        band:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          title: Band
+        components:
+          items:
+            $ref: '#/components/schemas/RiskComponent'
+          type: array
+          title: Components
+        score_provenance:
+          $ref: '#/components/schemas/ProvenancedField_float_'
+      type: object
+      required:
+        - case_id
+        - total
+        - band
+        - score_provenance
+      title: RiskScore
+    RiskScoringInput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+      type: object
+      required:
+        - case_id
+      title: RiskScoringInput
     Role:
       type: string
       enum:
@@ -365,6 +1383,414 @@ components:
       title: Role
       description: Three demo roles. Wire format is snake_case per architecture.md#Naming
         Patterns.
+    ScreeningAgentInput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        subjects:
+          items:
+            $ref: '#/components/schemas/ScreeningSubject'
+          type: array
+          maxItems: 50
+          minItems: 1
+          title: Subjects
+      type: object
+      required:
+        - case_id
+        - subjects
+      title: ScreeningAgentInput
+      description: "Input shape for the Story 6.2 Screening agent.\n\nSubjects are\
+        \ built by the supervisor from upstream agent outputs\n(Entity Verification\
+        \ + UBO Graph) \u2014 the agent receives them ready-built."
+    ScreeningAgentOutput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        hits:
+          items:
+            $ref: '#/components/schemas/ScreeningHit'
+          type: array
+          title: Hits
+        subjects_screened:
+          type: integer
+          minimum: 1.0
+          title: Subjects Screened
+      type: object
+      required:
+        - case_id
+        - subjects_screened
+      title: ScreeningAgentOutput
+      description: "Output of the Screening agent.\n\n``hits`` includes auto-dismissed\
+        \ entries \u2014 the UI shows the dismissed\nones in a collapsed group so\
+        \ officers can re-include if needed."
+    ScreeningHit:
+      properties:
+        hit_id:
+          type: string
+          minLength: 1
+          title: Hit Id
+        subject_id:
+          type: string
+          minLength: 1
+          title: Subject Id
+        matched_name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Matched Name
+        name_match_score:
+          $ref: '#/components/schemas/ProvenancedField_float_'
+        date_of_birth:
+          anyOf:
+            - type: string
+              format: date
+            - type: 'null'
+          title: Date Of Birth
+        identifiers:
+          additionalProperties:
+            type: string
+          type: object
+          title: Identifiers
+        categories:
+          items:
+            type: string
+            enum:
+              - sanctions
+              - pep
+              - adverse_media
+              - law_enforcement
+              - watchlist
+          type: array
+          minItems: 1
+          title: Categories
+        source_lists:
+          items:
+            type: string
+          type: array
+          title: Source Lists
+        disposition:
+          type: string
+          enum:
+            - open
+            - dismissed_by_agent
+            - confirmed_by_officer
+            - dismissed_by_officer
+          title: Disposition
+          default: open
+        dismissal_rationale:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Dismissal Rationale
+      type: object
+      required:
+        - hit_id
+        - subject_id
+        - matched_name
+        - name_match_score
+        - categories
+      title: ScreeningHit
+      description: One match from one subject against the vendor's index.
+    ScreeningSubject:
+      properties:
+        subject_kind:
+          type: string
+          enum:
+            - entity
+            - director
+            - ubo
+          title: Subject Kind
+        subject_id:
+          type: string
+          minLength: 1
+          title: Subject Id
+        full_name:
+          type: string
+          maxLength: 200
+          minLength: 1
+          title: Full Name
+        date_of_birth:
+          anyOf:
+            - type: string
+              format: date
+            - type: 'null'
+          title: Date Of Birth
+        identifiers:
+          additionalProperties:
+            type: string
+          type: object
+          title: Identifiers
+      type: object
+      required:
+        - subject_kind
+        - subject_id
+        - full_name
+      title: ScreeningSubject
+      description: A single name+DOB+identifier triple to screen.
+    StoredDocumentResponse:
+      properties:
+        filename:
+          type: string
+          title: Filename
+        size_bytes:
+          type: integer
+          minimum: 0.0
+          title: Size Bytes
+        uploaded_at:
+          type: string
+          format: date-time
+          title: Uploaded At
+      type: object
+      required:
+        - filename
+        - size_bytes
+        - uploaded_at
+      title: StoredDocumentResponse
+      description: One document on disk, surfaced through the API.
+    UBOEdge:
+      properties:
+        kind:
+          type: string
+          enum:
+            - owns
+            - director
+            - beneficial
+          title: Kind
+        from_id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: From Id
+        to_id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: To Id
+        ownership_pct:
+          anyOf:
+            - type: number
+              maximum: 100.0
+              minimum: 0.0
+            - type: 'null'
+          title: Ownership Pct
+        designation:
+          anyOf:
+            - type: string
+              enum:
+                - director
+                - managing_director
+                - additional_director
+                - nominee_director
+            - type: 'null'
+          title: Designation
+        confidence:
+          $ref: '#/components/schemas/ProvenancedField_float_'
+        nominee_flag:
+          type: string
+          enum:
+            - clear
+            - nominee_suspected
+            - officer_corrected
+          title: Nominee Flag
+          default: clear
+        rationale:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Rationale
+      type: object
+      required:
+        - kind
+        - from_id
+        - to_id
+        - confidence
+      title: UBOEdge
+    UBOEntityNode:
+      properties:
+        kind:
+          type: string
+          const: entity
+          title: Kind
+          default: entity
+        id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: Id
+        name:
+          type: string
+          minLength: 1
+          title: Name
+        cin:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Cin
+        country:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Country
+        is_corporate:
+          type: boolean
+          title: Is Corporate
+          default: true
+      type: object
+      required:
+        - id
+        - name
+      title: UBOEntityNode
+    UBOGraph:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        root_entity_id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: Root Entity Id
+        nodes:
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/UBOPersonNode'
+              - $ref: '#/components/schemas/UBOEntityNode'
+          type: array
+          title: Nodes
+        edges:
+          items:
+            $ref: '#/components/schemas/UBOEdge'
+          type: array
+          title: Edges
+      type: object
+      required:
+        - case_id
+        - root_entity_id
+      title: UBOGraph
+    UBOGraphInput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+        cin:
+          type: string
+          maxLength: 21
+          minLength: 21
+          title: Cin
+      type: object
+      required:
+        - case_id
+        - cin
+      title: UBOGraphInput
+    UBOPersonNode:
+      properties:
+        kind:
+          type: string
+          const: person
+          title: Kind
+          default: person
+        id:
+          type: string
+          maxLength: 72
+          minLength: 7
+          pattern: ^ubo_(p|e)_[A-Za-z0-9_-]{1,64}$
+          title: Id
+        name:
+          type: string
+          minLength: 1
+          title: Name
+        din:
+          anyOf:
+            - type: string
+              pattern: ^\d{8}$
+            - type: 'null'
+          title: Din
+        country:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: Country
+      type: object
+      required:
+        - id
+        - name
+      title: UBOPersonNode
+    UndoDecisionRequest:
+      properties:
+        reason:
+          type: string
+          maxLength: 2000
+          minLength: 40
+          title: Reason
+      type: object
+      required:
+        - reason
+      title: UndoDecisionRequest
+      description: "Request body for `POST /v1/cases/{case_id}/decisions/{decision_id}/undo`.\n\
+        \nStory 7.5 \u2014 `reason` is the audit-trail anchor; \u226540 chars per\n\
+        NFR-T6."
+    UndoDecisionResponse:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        decision_id:
+          type: string
+          title: Decision Id
+        case_state:
+          type: string
+          title: Case State
+        ledger_entry_id:
+          type: string
+          title: Ledger Entry Id
+      type: object
+      required:
+        - case_id
+        - decision_id
+        - case_state
+        - ledger_entry_id
+      title: UndoDecisionResponse
+      description: "200 response shape for the undo endpoint \u2014 Story 7.5."
+    UploadResponse:
+      properties:
+        case_id:
+          type: string
+          title: Case Id
+        uploaded:
+          items:
+            $ref: '#/components/schemas/StoredDocumentResponse'
+          type: array
+          title: Uploaded
+        document_refs:
+          items:
+            type: string
+          type: array
+          title: Document Refs
+      type: object
+      required:
+        - case_id
+        - uploaded
+        - document_refs
+      title: UploadResponse
+      description: Reply to a successful POST.
     User:
       properties:
         id:
@@ -417,3 +1843,18 @@ components:
         - msg
         - type
       title: ValidationError
+    WritingAgentInput:
+      properties:
+        case_id:
+          type: string
+          maxLength: 31
+          minLength: 31
+          pattern: ^case_[0-9A-HJKMNP-TV-Z]{26}$
+          title: Case Id
+      type: object
+      required:
+        - case_id
+      title: WritingAgentInput
+      description: "Tool-facing input for the Writing agent. Upstream typed outputs\n\
+        are NOT in the input \u2014 the supervisor reads them off the case's\nintake\
+        \ row at call time, mirroring Story 6.2's screening agent."

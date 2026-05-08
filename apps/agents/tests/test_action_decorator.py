@@ -292,3 +292,132 @@ async def test_runtime_overrides_do_not_leak_across_calls(
     assert isinstance(entries[1].payload, AgentActionLedgerEntry)
     assert entries[0].payload.model_id == "override-1"
     assert entries[1].payload.model_id == "static"
+
+
+# ───────────── Story 6.4 — reasoning trace integration ─────────────
+
+from contracts.reasoning_trace import ReasoningTrace  # noqa: E402
+
+
+def _valid_trace() -> ReasoningTrace:
+    from contracts.confidence import to_band
+    from contracts.reasoning_trace import ConfidenceWithRationale
+
+    return ReasoningTrace(
+        what_searched="searched the screening provider against 3 subjects",
+        what_hit="returned 1 sanctions match at score 0.73",
+        confidence_self_rating=ConfidenceWithRationale(
+            value=0.73,
+            rationale="mean of returned hit scores; sample of 1",
+            band=to_band(0.73),
+        ),
+        counterfactual="disposition would change with officer DOB confirmation",
+    )
+
+
+async def test_reasoning_trace_attached_to_ledger_entry(tmp_writer: LedgerWriter) -> None:
+    from agents.supervisor.action_decorator import set_runtime_reasoning_trace
+
+    @agent_action(agent_id="screening")
+    async def stub(_: StubIn) -> StubOut:
+        set_runtime_reasoning_trace(_valid_trace())
+        return StubOut(bar=1)
+
+    await stub(StubIn(case_id=SHREE_VENKAT_ID))
+    entries = await _read(tmp_writer)
+    payload = entries[0].payload
+    assert isinstance(payload, AgentActionLedgerEntry)
+    assert payload.reasoning_trace is not None
+    assert "screening provider" in payload.reasoning_trace.what_searched
+
+
+async def test_no_trace_attached_yields_none(tmp_writer: LedgerWriter) -> None:
+    @agent_action(agent_id="document_intelligence")
+    async def stub(_: StubIn) -> StubOut:
+        return StubOut(bar=1)
+
+    await stub(StubIn(case_id=SHREE_VENKAT_ID))
+    entries = await _read(tmp_writer)
+    payload = entries[0].payload
+    assert isinstance(payload, AgentActionLedgerEntry)
+    assert payload.reasoning_trace is None
+
+
+async def test_invalid_trace_raises_incomplete_error() -> None:
+    from contracts.confidence import to_band
+    from contracts.reasoning_trace import (
+        ConfidenceWithRationale,
+        IncompleteReasoningTraceError,
+        ReasoningTrace,
+    )
+
+    from agents.supervisor.action_decorator import set_runtime_reasoning_trace
+
+    # Build a "valid" object first, then mutate via model_copy with an
+    # invalid (too-short) field so we hit the validator.
+    bad = ReasoningTrace.model_construct(
+        what_searched="x",  # too short
+        what_hit="okay length string here",
+        confidence_self_rating=ConfidenceWithRationale(value=0.5, rationale="this is a rationale", band=to_band(0.5)),
+        counterfactual="okay length string here",
+    )
+    with pytest.raises(IncompleteReasoningTraceError) as exc_info:
+        set_runtime_reasoning_trace(bad)
+    assert "what_searched" in str(exc_info.value)
+
+
+async def test_failed_agent_run_has_no_reasoning_trace(tmp_writer: LedgerWriter) -> None:
+    @agent_action(agent_id="entity_verification")
+    async def boom(_: StubIn) -> StubOut:
+        raise RuntimeError("kaboom")
+
+    with pytest.raises(AgentExecutionError):
+        await boom(StubIn(case_id=SHREE_VENKAT_ID))
+    entries = await _read(tmp_writer)
+    payload = entries[0].payload
+    assert isinstance(payload, AgentActionLedgerEntry)
+    assert payload.status == "error"
+    assert payload.reasoning_trace is None
+
+
+async def test_concurrent_traces_do_not_cross_pollute(tmp_writer: LedgerWriter) -> None:
+    """ContextVars are task-local — two concurrent agents see only their own trace."""
+    import asyncio
+
+    from contracts.confidence import to_band
+    from contracts.reasoning_trace import ConfidenceWithRationale, ReasoningTrace
+
+    from agents.supervisor.action_decorator import set_runtime_reasoning_trace
+
+    def _trace(label: str) -> ReasoningTrace:
+        return ReasoningTrace(
+            what_searched=f"search by {label} agent for testing",
+            what_hit=f"hit by {label} agent for testing",
+            confidence_self_rating=ConfidenceWithRationale(
+                value=0.5, rationale=f"rationale for {label}", band=to_band(0.5)
+            ),
+            counterfactual=f"counterfactual for {label}",
+        )
+
+    @agent_action(agent_id="agent_a")
+    async def a(_: StubIn) -> StubOut:
+        await asyncio.sleep(0.01)
+        set_runtime_reasoning_trace(_trace("a"))
+        return StubOut(bar=1)
+
+    @agent_action(agent_id="agent_b")
+    async def b(_: StubIn) -> StubOut:
+        await asyncio.sleep(0.005)
+        set_runtime_reasoning_trace(_trace("b"))
+        return StubOut(bar=2)
+
+    await asyncio.gather(a(StubIn(case_id=SHREE_VENKAT_ID)), b(StubIn(case_id=SHREE_VENKAT_ID)))
+    entries = await _read(tmp_writer)
+    by_agent: dict[str, AgentActionLedgerEntry] = {}
+    for e in entries:
+        if isinstance(e.payload, AgentActionLedgerEntry):
+            by_agent[e.payload.agent_id] = e.payload
+    assert by_agent["agent_a"].reasoning_trace is not None
+    assert "search by a" in by_agent["agent_a"].reasoning_trace.what_searched
+    assert by_agent["agent_b"].reasoning_trace is not None
+    assert "search by b" in by_agent["agent_b"].reasoning_trace.what_searched

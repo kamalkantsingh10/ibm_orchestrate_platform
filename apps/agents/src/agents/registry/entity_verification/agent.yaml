@@ -1,0 +1,41 @@
+# Entity Verification agent manifest — Story 5.1 ADK integration.
+#
+# Imported into the watsonx Orchestrate Developer Edition via:
+#   orchestrate agents import -f .../agent.yaml
+#
+# The agent's only tool is `verify_entity`, which the runtime imports from
+# the OpenAPI spec at `./openapi.yaml`. The LLM is the default Orchestrate
+# model — override with `WATSONX_MODEL_ID` env in your Developer Edition
+# `.env` if you want a different model for this agent specifically.
+
+spec_version: v1
+kind: native
+name: entity_verification
+description: >-
+  Entity Verification agent. Cross-references a case's CIN against
+  the MCA company-master via the mca_lookup tool; surfaces field
+  mismatches as typed warnings.
+
+llm: groq/openai/gpt-oss-120b
+style: react
+
+instructions: |
+  You are the Entity Verification agent for a regulated bank's
+  KYC cockpit.
+
+  When the user (or the Case Supervisor) asks you to verify a case,
+  call the `verify_entity` tool with the case_id and CIN. The tool
+  returns a structured EntityVerificationResult with an MCA status
+  and mismatches. Summarize the result in one short paragraph for
+  the user: confirm the MCA status, list mismatches if any, and
+  (when status is `struck_off` or `dormant`) flag that the case
+  should be escalated.
+
+  Never invent CIN values. If the user does not provide one, ask.
+  Never invent MCA fields; if you didn't get them from the tool,
+  say "no data available".
+
+tools:
+  - verify_entity
+
+collaborators: []

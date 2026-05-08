@@ -1,0 +1,10 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: Document Intelligence — page with corner-fold + horizontal lines.
+     viewBox 64×64. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M14 8 H42 L52 18 V56 H14 Z" />
+  <path d="M42 8 V18 H52" />
+  <line x1="22" y1="30" x2="44" y2="30" />
+  <line x1="22" y1="38" x2="44" y2="38" />
+  <line x1="22" y1="46" x2="36" y2="46" />
+</svg>

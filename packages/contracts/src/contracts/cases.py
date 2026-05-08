@@ -54,6 +54,7 @@ class CaseState(StrEnum):
 
     INTAKE_SCHEDULED = "intake_scheduled"
     DECISION_READY = "decision_ready"
+    PENDING_SEAL = "pending_seal"  # Story 7.4 — 120s undo window
     COMMITTED = "committed"
     ESCALATED = "escalated"
     CLOSED = "closed"
@@ -65,13 +66,24 @@ ALLOWED_TRANSITIONS: dict[CaseState, set[CaseState]] = {
         CaseState.ESCALATED,
         CaseState.CLOSED,
     },
+    # Story 7.4 — DECISION_READY no longer transitions directly to
+    # COMMITTED; all commits go through PENDING_SEAL so the 120s undo
+    # window applies.
     CaseState.DECISION_READY: {
-        CaseState.COMMITTED,
+        CaseState.PENDING_SEAL,
         CaseState.ESCALATED,
         CaseState.CLOSED,
     },
+    CaseState.PENDING_SEAL: {
+        CaseState.COMMITTED,  # timer elapses → seal
+        CaseState.DECISION_READY,  # officer undo (Story 7.5)
+    },
     CaseState.COMMITTED: {CaseState.CLOSED},
-    CaseState.ESCALATED: {CaseState.COMMITTED, CaseState.CLOSED},
+    CaseState.ESCALATED: {
+        CaseState.COMMITTED,
+        CaseState.DECISION_READY,
+        CaseState.CLOSED,
+    },
     CaseState.CLOSED: set(),  # terminal
 }
 """Adjacency map for the case lifecycle. Edges not listed are forbidden."""
@@ -109,6 +121,30 @@ class CustomerMetadata(BaseModel):
 # ───────────────────────────── case aggregate ──────────────────────────────
 
 
+class CaseLatestDecision(BaseModel):
+    """Per-case decision summary surfaced on ``GET /v1/cases/{case_id}``.
+
+    Story 7.6 / AC #5. ``sealed_ledger_entry_id`` is ``None`` while the
+    decision is still in the 120-second undo window (state
+    ``pending_seal``); populated once the seal-time ledger entry is
+    written. Story 7.7 owns the ``decisions`` table that backs this; the
+    envelope addition lands here so the cockpit-ui's
+    ``SealedIndicator`` can read the seal id without a second round-
+    trip.
+    """
+
+    model_config = {"frozen": True}
+
+    decision_id: str = Field(min_length=1)
+    outcome: Literal[
+        "approve",
+        "decline",
+        "approve_with_conditions",
+        "escalate_to_edd",
+    ]
+    sealed_ledger_entry_id: str | None = None
+
+
 class Case(BaseModel):
     """The case aggregate. Wire format mirrors this contract 1:1."""
 
@@ -122,6 +158,10 @@ class Case(BaseModel):
     created_at: datetime
     updated_at: datetime
     closure_date: datetime | None = None
+    # Story 7.6 — populated by the case envelope route; ``None`` for
+    # cases with no decision yet OR while Story 7.7's decisions table
+    # hasn't shipped (the route returns ``None`` in both cases).
+    latest_decision: CaseLatestDecision | None = None
 
 
 # ───────────────────────────── demo fixtures ───────────────────────────────
@@ -180,6 +220,9 @@ def get_demo_case_fixtures(now: datetime) -> list[Case]:
                     "address_proof.pdf",
                     "director_id.pdf",
                 ],
+                # Story 4.1 — SLA window for queue ordering. Shree is the
+                # cleanest case (lowest urgency); pin 48h out from seed time.
+                "sla_due_at": (now + timedelta(hours=48)).isoformat().replace("+00:00", "Z"),
             },
         ),
         assigned_to_user_id=ANALYST_ID,
@@ -218,6 +261,8 @@ def get_demo_case_fixtures(now: datetime) -> list[Case]:
                     "director_id.pdf",
                     "bank_statement_q1.pdf",
                 ],
+                # Story 4.1 — UBO complexity bumps Vora's urgency above Shree.
+                "sla_due_at": (now + timedelta(hours=24)).isoformat().replace("+00:00", "Z"),
             },
         ),
         assigned_to_user_id=ANALYST_ID,
@@ -254,6 +299,8 @@ def get_demo_case_fixtures(now: datetime) -> list[Case]:
                     "address_proof.pdf",
                     "income_proof.pdf",
                 ],
+                # Story 4.1 — Ananya's screening hit drives the tightest SLA.
+                "sla_due_at": (now + timedelta(hours=6)).isoformat().replace("+00:00", "Z"),
             },
         ),
         assigned_to_user_id=ANALYST_ID,

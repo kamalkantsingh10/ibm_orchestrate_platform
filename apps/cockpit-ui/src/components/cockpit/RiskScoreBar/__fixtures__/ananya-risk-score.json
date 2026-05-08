@@ -1,0 +1,53 @@
+{
+  "case_id": "case_01KQC7JHT0GYHP15CZ8JB5ZT6B",
+  "total": 35,
+  "band": "medium",
+  "components": [
+    {
+      "name": "country",
+      "value": 20.0,
+      "weight": 0.15,
+      "contribution": 3.0,
+      "rationale": "Individual customer (country='IN')"
+    },
+    {
+      "name": "entity_type",
+      "value": 25.0,
+      "weight": 0.2,
+      "contribution": 5.0,
+      "rationale": "Individual customer; no entity-type risk"
+    },
+    {
+      "name": "ownership_clarity",
+      "value": 50.0,
+      "weight": 0.3,
+      "contribution": 15.0,
+      "rationale": "UBO graph absent; treating as opaque"
+    },
+    {
+      "name": "screening",
+      "value": 60.0,
+      "weight": 0.2,
+      "contribution": 12.0,
+      "rationale": "Screening hit hint present"
+    },
+    {
+      "name": "adverse_media",
+      "value": 0.0,
+      "weight": 0.15,
+      "contribution": 0.0,
+      "rationale": "No adverse-media signal"
+    }
+  ],
+  "score_provenance": {
+    "value": 0.35,
+    "provenance": {
+      "source_agent": "risk_scoring",
+      "source_system": "deterministic",
+      "confidence": 0.85,
+      "confidence_band": "high",
+      "evidence_ids": [],
+      "captured_at": "2026-05-08T00:00:00Z"
+    }
+  }
+}

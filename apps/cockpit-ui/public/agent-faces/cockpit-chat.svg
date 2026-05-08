@@ -1,0 +1,9 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: Cockpit Chat — speech bubble with three dots.
+     viewBox 64×64. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M10 14 H54 V44 H30 L20 54 V44 H10 Z" />
+  <circle cx="22" cy="29" r="2" fill="currentColor" stroke="none" />
+  <circle cx="32" cy="29" r="2" fill="currentColor" stroke="none" />
+  <circle cx="42" cy="29" r="2" fill="currentColor" stroke="none" />
+</svg>

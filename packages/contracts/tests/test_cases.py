@@ -225,3 +225,65 @@ def test_demo_case_fixtures_carry_forward_compat_extras() -> None:
     # All three carry document refs for Epic 3's Document Intelligence.
     for c in by_id.values():
         assert "document_refs" in c.customer_metadata.extra
+
+
+def test_demo_case_fixtures_carry_sla_due_at_pinned_relative_to_now() -> None:
+    """Story 4.1 — each fixture has an ``sla_due_at`` key whose distance
+    from the seed clock encodes the demo-narrative urgency: Ananya tightest
+    (screening hit), Vora middle (UBO complexity), Shree loosest (clean)."""
+    by_id = {c.id: c for c in get_demo_case_fixtures(_FROZEN_NOW)}
+    for c in by_id.values():
+        assert "sla_due_at" in c.customer_metadata.extra
+        # Parses cleanly — ISO-8601 with Z suffix.
+        sla = datetime.fromisoformat(c.customer_metadata.extra["sla_due_at"].replace("Z", "+00:00"))
+        assert sla > _FROZEN_NOW
+    # Assert the relative urgency ordering (Ananya soonest, Shree latest).
+    ananya_sla = datetime.fromisoformat(
+        by_id[ANANYA_IYER_ID].customer_metadata.extra["sla_due_at"].replace("Z", "+00:00")
+    )
+    vora_sla = datetime.fromisoformat(
+        by_id[VORA_CAPITAL_ID].customer_metadata.extra["sla_due_at"].replace("Z", "+00:00")
+    )
+    shree_sla = datetime.fromisoformat(
+        by_id[SHREE_VENKAT_ID].customer_metadata.extra["sla_due_at"].replace("Z", "+00:00")
+    )
+    assert ananya_sla < vora_sla < shree_sla
+
+
+# ───────────── Story 7.4 — pending_seal state + transitions ─────────────
+
+
+def test_pending_seal_enum_member_exists() -> None:
+    assert CaseState.PENDING_SEAL.value == "pending_seal"
+
+
+def test_decision_ready_no_longer_transitions_directly_to_committed() -> None:
+    assert CaseState.PENDING_SEAL in ALLOWED_TRANSITIONS[CaseState.DECISION_READY]
+    assert CaseState.COMMITTED not in ALLOWED_TRANSITIONS[CaseState.DECISION_READY]
+
+
+def test_pending_seal_transitions_are_committed_and_decision_ready() -> None:
+    assert ALLOWED_TRANSITIONS[CaseState.PENDING_SEAL] == {
+        CaseState.COMMITTED,
+        CaseState.DECISION_READY,
+    }
+
+
+def test_assert_transition_pending_seal_to_committed_succeeds() -> None:
+    assert_transition(CaseState.PENDING_SEAL, CaseState.COMMITTED)
+
+
+def test_assert_transition_pending_seal_to_decision_ready_succeeds() -> None:
+    """Story 7.5 undo path."""
+    assert_transition(CaseState.PENDING_SEAL, CaseState.DECISION_READY)
+
+
+def test_assert_transition_pending_seal_to_escalated_raises() -> None:
+    with pytest.raises(CaseStateTransitionError):
+        assert_transition(CaseState.PENDING_SEAL, CaseState.ESCALATED)
+
+
+def test_assert_transition_decision_ready_directly_to_committed_now_raises() -> None:
+    """Story 7.4 regression: previously allowed, now goes via PENDING_SEAL."""
+    with pytest.raises(CaseStateTransitionError):
+        assert_transition(CaseState.DECISION_READY, CaseState.COMMITTED)

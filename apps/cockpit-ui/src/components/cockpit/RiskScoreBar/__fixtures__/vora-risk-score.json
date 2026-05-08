@@ -1,0 +1,53 @@
+{
+  "case_id": "case_01KQC7GQ70GYHP15CZ8JB5ZT6A",
+  "total": 37,
+  "band": "medium",
+  "components": [
+    {
+      "name": "country",
+      "value": 10.0,
+      "weight": 0.15,
+      "contribution": 1.5,
+      "rationale": "Customer country: IN (low-risk)"
+    },
+    {
+      "name": "entity_type",
+      "value": 70.0,
+      "weight": 0.2,
+      "contribution": 14.0,
+      "rationale": "Company with 2 foreign-corporate UBO holder(s)"
+    },
+    {
+      "name": "ownership_clarity",
+      "value": 70.0,
+      "weight": 0.3,
+      "contribution": 21.0,
+      "rationale": "3 nominee-suspected edge(s); 0 officer-corrected edge(s)"
+    },
+    {
+      "name": "screening",
+      "value": 0.0,
+      "weight": 0.2,
+      "contribution": 0.0,
+      "rationale": "No screening signal"
+    },
+    {
+      "name": "adverse_media",
+      "value": 0.0,
+      "weight": 0.15,
+      "contribution": 0.0,
+      "rationale": "No adverse-media signal"
+    }
+  ],
+  "score_provenance": {
+    "value": 0.37,
+    "provenance": {
+      "source_agent": "risk_scoring",
+      "source_system": "deterministic",
+      "confidence": 0.85,
+      "confidence_band": "high",
+      "evidence_ids": [],
+      "captured_at": "2026-05-08T00:00:00Z"
+    }
+  }
+}

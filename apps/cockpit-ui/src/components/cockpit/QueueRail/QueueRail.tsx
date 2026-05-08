@@ -1,9 +1,10 @@
-// Queue Rail — Story 2.3.
+// Queue Rail — Story 2.3 + Story 4.2 (keyboard focus visual).
 // Presentational vertical list of cases. The /queue route owns data fetching
-// and passes pending/error props down. Story 4-1 will reorder before passing;
-// Story 4-2 will drive activeCaseId from a Zustand store; Story 4-9 will
-// overlay status pills.
+// and passes pending/error props down. Story 4.1 reorders before passing
+// (server-side); Story 4.2 adds focusedIndex for keyboard nav; Story 4.9
+// will overlay status pills.
 
+import { useEffect, useRef } from 'react';
 import type { Case, CaseState } from '@/lib/types/case';
 import { badgeFor } from '@/lib/caseState';
 import { formatRelative } from '@/lib/formatRelative';
@@ -15,6 +16,8 @@ export interface QueueRailProps {
   isPending?: boolean;
   isError?: boolean;
   onRetry?: () => void;
+  /** Story 4.2 — keyboard-focused row index; -1 = no focus. */
+  focusedIndex?: number;
 }
 
 const RAIL_CLASSES =
@@ -28,6 +31,7 @@ export function QueueRail({
   isPending,
   isError,
   onRetry,
+  focusedIndex = -1,
 }: QueueRailProps) {
   if (isError) {
     return (
@@ -72,8 +76,14 @@ export function QueueRail({
   return (
     <div className={RAIL_CLASSES}>
       <ul className="flex flex-col">
-        {cases.map((c) => (
-          <QueueRow key={c.id} caseItem={c} isActive={c.id === activeCaseId} onSelect={onSelect} />
+        {cases.map((c, i) => (
+          <QueueRow
+            key={c.id}
+            caseItem={c}
+            isActive={c.id === activeCaseId}
+            isFocused={i === focusedIndex}
+            onSelect={onSelect}
+          />
         ))}
       </ul>
     </div>
@@ -83,26 +93,42 @@ export function QueueRail({
 interface QueueRowProps {
   caseItem: Case;
   isActive: boolean;
+  isFocused: boolean;
   onSelect?: (caseId: string) => void;
 }
 
-function QueueRow({ caseItem, isActive, onSelect }: QueueRowProps) {
+function QueueRow({ caseItem, isActive, isFocused, onSelect }: QueueRowProps) {
   const badge = badgeFor(caseItem.state as CaseState);
   const name = truncate(caseItem.customer_metadata.customer_name, 28);
   const relative = formatRelative(caseItem.created_at);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+
+  // Move DOM focus when the keyboard hook flags this row. SR announces the
+  // row's content; users without SR see the visual focus ring.
+  useEffect(() => {
+    if (isFocused && document.activeElement !== buttonRef.current) {
+      buttonRef.current?.focus({ preventScroll: false });
+    }
+  }, [isFocused]);
 
   // hover:bg-zinc-100 is intentional — the rail bg is #FAFAF9 (≈zinc-50),
-  // so zinc-100 (#f4f4f5) is the first shade that visibly contrasts.
+  // so zinc-100 (#f4f4f5) is the first shade that visibly contrasts. The
+  // duration-100 ease-out matches Story 4.4's `snap` motion preset (CSS
+  // mirror of `lib/motion.ts` `snap`); kept as Tailwind utilities here
+  // because the row state isn't a Framer Motion variant.
   const baseClasses =
-    'flex h-16 w-full items-center justify-between gap-3 border-b border-zinc-100 px-3 py-2 text-left transition-colors hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+    'flex h-16 w-full items-center justify-between gap-3 border-b border-zinc-100 px-3 py-2 text-left transition-[background-color,border-color] duration-100 ease-out hover:bg-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
   const activeClasses = isActive ? 'border-l-2 border-l-blue-500 bg-zinc-100' : '';
+  const focusedClasses = isFocused && !isActive ? 'border-l-2 border-l-zinc-400 bg-zinc-50' : '';
 
   return (
     <li>
       <button
+        ref={buttonRef}
         type="button"
+        data-focused={isFocused ? 'true' : undefined}
         onClick={() => onSelect?.(caseItem.id)}
-        className={`${baseClasses} ${activeClasses}`}
+        className={`${baseClasses} ${activeClasses} ${focusedClasses}`}
       >
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-medium text-zinc-900">{name}</span>

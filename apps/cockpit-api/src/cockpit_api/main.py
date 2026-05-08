@@ -5,9 +5,17 @@ liveness endpoint (`/health`). Story 1.4 adds the demo user-switcher router.
 Story 2.2 adds the cases router and the RFC 7807 error handler.
 Story 3.4 ADK integration adds the agents router so the watsonx Orchestrate
 runtime can invoke document_intelligence as a tool.
+Story 7.4 wires the in-process decision undo timer service into the
+FastAPI lifespan so the POST decision endpoint (Story 7.7) can schedule
+a 120s seal countdown.
 """
 
 from __future__ import annotations
+
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -18,9 +26,74 @@ from cockpit_api.errors import RFC7807Problem
 from cockpit_api.routers import agents as agents_router
 from cockpit_api.routers import cases as cases_router
 from cockpit_api.routers import documents as documents_router
+from cockpit_api.routers import stream as stream_router
 from cockpit_api.routers import users as users_router
+from cockpit_api.services.decision_timer import DecisionTimerService
 
-app = FastAPI(title="Cockpit API", version="0.1.0")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """App lifespan — owns the decision timer singleton + the cured
+    ``seal_decision`` callback.
+
+    Story 7.4 added the timer; Story 7.7 wires the real ``on_seal``
+    callback that transitions the case to COMMITTED, writes the
+    ``decision.sealed`` ledger entry, and publishes the SSE event.
+    The callback uses ``session_factory`` (not a request-bound
+    session) because it runs on the timer's background task.
+    """
+    from cockpit_api.db.session import get_sessionmaker
+    from cockpit_api.services import decision_service
+    from cockpit_api.services.ledger_service import get_ledger_writer
+    from cockpit_api.services.sse_registry import publish_safe
+
+    sessionmaker = get_sessionmaker()
+
+    @asynccontextmanager
+    async def _factory() -> AsyncIterator[Any]:
+        async with sessionmaker() as s:
+            yield s
+
+    async def on_seal(case_id: str, decision_id: str) -> None:
+        try:
+            await decision_service.seal_decision(
+                case_id=case_id,
+                decision_id=decision_id,
+                session_factory=_factory,
+                writer=get_ledger_writer(),
+                sse_publish=publish_safe,
+            )
+        except Exception:
+            logger.exception(
+                "decision_timer.seal_decision_failed case=%s decision=%s",
+                case_id,
+                decision_id,
+            )
+
+    timer = DecisionTimerService(on_seal=on_seal)
+    _app.state.decision_timer = timer
+    try:
+        yield
+    finally:
+        await timer.shutdown()
+
+
+app = FastAPI(title="Cockpit API", version="0.1.0", lifespan=lifespan)
+
+
+def get_decision_timer(request: Request) -> DecisionTimerService:
+    """FastAPI dependency that returns the lifespan-scoped timer.
+
+    Story 7.7's POST decision endpoint and Story 7.5's undo endpoint
+    both consume this — ``Depends(get_decision_timer)``.
+    """
+    timer = getattr(request.app.state, "decision_timer", None)
+    if timer is None:  # pragma: no cover — would only happen pre-lifespan
+        raise RuntimeError("decision_timer not initialised; lifespan did not run")
+    return timer  # type: ignore[no-any-return]
+
 
 # CORS for the local cockpit-ui dev server. The UI sends a custom
 # `X-Cockpit-Demo-User` header which makes every request a CORS-non-simple
@@ -38,6 +111,7 @@ app.include_router(users_router.router)
 app.include_router(cases_router.router)
 app.include_router(agents_router.router)
 app.include_router(documents_router.router)
+app.include_router(stream_router.router)
 
 
 _PROBLEM_CONTENT_TYPE = "application/problem+json"

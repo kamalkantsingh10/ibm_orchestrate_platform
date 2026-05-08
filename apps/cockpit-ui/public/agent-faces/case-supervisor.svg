@@ -1,0 +1,14 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: Case Supervisor — orchestrator hub with four spokes.
+     viewBox 64×64; uses currentColor for stroke; 2 KB ceiling. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="32" cy="32" r="8" />
+  <line x1="32" y1="6" x2="32" y2="20" />
+  <line x1="32" y1="44" x2="32" y2="58" />
+  <line x1="6" y1="32" x2="20" y2="32" />
+  <line x1="44" y1="32" x2="58" y2="32" />
+  <circle cx="32" cy="6" r="2.5" fill="currentColor" />
+  <circle cx="32" cy="58" r="2.5" fill="currentColor" />
+  <circle cx="6" cy="32" r="2.5" fill="currentColor" />
+  <circle cx="58" cy="32" r="2.5" fill="currentColor" />
+</svg>

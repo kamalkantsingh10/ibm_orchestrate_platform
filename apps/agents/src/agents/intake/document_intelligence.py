@@ -32,11 +32,17 @@ from agents.supervisor.action_decorator import (
 
 logger = logging.getLogger(__name__)
 
-# Filesystem location for uploaded PDFs in watsonx mode (architecture demo
-# addendum). Story 3.8 added per-case subdirs:
-#   ./fixtures/uploads/<case_id>/<filename>.pdf
-# Fixture mode never reads from this path.
-_FIXTURE_UPLOAD_DIR = Path("./fixtures/uploads")
+# Filesystem location for uploaded PDFs. Story 3.8 added per-case subdirs:
+#   <UPLOADS_ROOT>/<case_id>/<filename>.pdf
+# Story 4 hardening — read from ``UPLOADS_ROOT`` env var (set by the
+# Makefile to the repo-root path) so this resolves regardless of which
+# cwd the agent runs in. Falls back to a cwd-relative path for tests
+# and ad-hoc CLI runs that don't set the env var.
+
+
+def _resolve_upload_dir() -> Path:
+    env_value = os.environ.get("UPLOADS_ROOT")
+    return Path(env_value) if env_value else Path("./fixtures/uploads")
 
 
 def _classify(filename: str) -> str:
@@ -71,12 +77,13 @@ def _get_default_llm() -> DocAILLM:
 def _read_pdf_text(case_id: str, filename: str) -> str | None:
     """Return concatenated PDF text or ``None`` if the file is missing.
 
-    Story 3.8 case-scoped path: ``./fixtures/uploads/<case_id>/<filename>``.
-    Falls back to the legacy flat path ``./fixtures/uploads/<filename>`` so
+    Story 3.8 case-scoped path: ``<UPLOADS_ROOT>/<case_id>/<filename>``.
+    Falls back to the legacy flat path ``<UPLOADS_ROOT>/<filename>`` so
     pre-3.8 demo content (if any) keeps working.
     """
-    case_path = _FIXTURE_UPLOAD_DIR / case_id / filename
-    legacy_path = _FIXTURE_UPLOAD_DIR / filename
+    upload_dir = _resolve_upload_dir()
+    case_path = upload_dir / case_id / filename
+    legacy_path = upload_dir / filename
     if case_path.exists():
         path = case_path
     elif legacy_path.exists():
@@ -116,13 +123,17 @@ async def document_intelligence(
     set_runtime_model_id(resolved_llm.model_id)
 
     taxonomy = get_india_taxonomy()
-    use_watsonx = isinstance(resolved_llm, FixtureDocAILLM) is False
+    # Story 4 hardening — always try to read the per-case PDF text. The
+    # fixture adapter's smart mode (Story 4) extracts case-correct fields
+    # from it; watsonx mode has always required it. When the file is
+    # missing on disk (or pypdf fails), text is None and the fixture
+    # falls back to its static stub table.
 
     combined: list[ExtractedField] = []
     for ref in input.document_refs:
         category = _classify(ref)
         field_specs: list[FieldSpec] = taxonomy.categories.get(category, [])
-        text = _read_pdf_text(input.case_id, ref) if use_watsonx else None
+        text = _read_pdf_text(input.case_id, ref)
         try:
             extracted = await resolved_llm.extract(document_ref=ref, text=text, taxonomy=field_specs)
         except DocAILLMError:

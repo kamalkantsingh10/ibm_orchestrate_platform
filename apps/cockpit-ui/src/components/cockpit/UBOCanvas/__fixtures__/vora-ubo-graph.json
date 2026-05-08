@@ -1,0 +1,173 @@
+{
+  "case_id": "case_01KQC7GQ70GYHP15CZ8JB5ZT6A",
+  "root_entity_id": "ubo_e_u67120mh2024ptc444789",
+  "nodes": [
+    {
+      "kind": "entity",
+      "id": "ubo_e_u67120mh2024ptc444789",
+      "name": "Vora Capital Holdings Pvt Ltd",
+      "cin": "U67120MH2024PTC444789",
+      "country": "IN",
+      "is_corporate": true
+    },
+    {
+      "kind": "person",
+      "id": "ubo_p_09876543",
+      "name": "Devansh Vora",
+      "din": "09876543",
+      "country": null
+    },
+    {
+      "kind": "person",
+      "id": "ubo_p_09876544",
+      "name": "Rohan Mehta",
+      "din": "09876544",
+      "country": null
+    },
+    {
+      "kind": "person",
+      "id": "ubo_p_09876545",
+      "name": "A K Filing Services",
+      "din": "09876545",
+      "country": null
+    },
+    {
+      "kind": "entity",
+      "id": "ubo_e_coastal_equity_partners_pte_ltd",
+      "name": "Coastal Equity Partners Pte Ltd",
+      "cin": null,
+      "country": "SG",
+      "is_corporate": true
+    },
+    {
+      "kind": "entity",
+      "id": "ubo_e_anchor_trust_services_bvi",
+      "name": "Anchor Trust Services (BVI)",
+      "cin": null,
+      "country": "VG",
+      "is_corporate": true
+    }
+  ],
+  "edges": [
+    {
+      "kind": "director",
+      "from_id": "ubo_p_09876543",
+      "to_id": "ubo_e_u67120mh2024ptc444789",
+      "ownership_pct": null,
+      "designation": "managing_director",
+      "confidence": {
+        "value": 0.95,
+        "provenance": {
+          "source_agent": "ubo_graph",
+          "source_system": "mca_mock",
+          "confidence": 0.95,
+          "confidence_band": "high",
+          "evidence_ids": [],
+          "captured_at": "2026-05-08T00:00:00Z"
+        }
+      },
+      "nominee_flag": "clear",
+      "rationale": null
+    },
+    {
+      "kind": "director",
+      "from_id": "ubo_p_09876544",
+      "to_id": "ubo_e_u67120mh2024ptc444789",
+      "ownership_pct": null,
+      "designation": "director",
+      "confidence": {
+        "value": 0.95,
+        "provenance": {
+          "source_agent": "ubo_graph",
+          "source_system": "mca_mock",
+          "confidence": 0.95,
+          "confidence_band": "high",
+          "evidence_ids": [],
+          "captured_at": "2026-05-08T00:00:00Z"
+        }
+      },
+      "nominee_flag": "clear",
+      "rationale": null
+    },
+    {
+      "kind": "director",
+      "from_id": "ubo_p_09876545",
+      "to_id": "ubo_e_u67120mh2024ptc444789",
+      "ownership_pct": null,
+      "designation": "nominee_director",
+      "confidence": {
+        "value": 0.55,
+        "provenance": {
+          "source_agent": "ubo_graph",
+          "source_system": "mca_mock",
+          "confidence": 0.55,
+          "confidence_band": "medium_low",
+          "evidence_ids": [],
+          "captured_at": "2026-05-08T00:00:00Z"
+        }
+      },
+      "nominee_flag": "nominee_suspected",
+      "rationale": "MCA explicitly designates appointment as nominee_director"
+    },
+    {
+      "kind": "owns",
+      "from_id": "ubo_p_09876543",
+      "to_id": "ubo_e_u67120mh2024ptc444789",
+      "ownership_pct": 5.0,
+      "designation": null,
+      "confidence": {
+        "value": 0.92,
+        "provenance": {
+          "source_agent": "ubo_graph",
+          "source_system": "mca_mock",
+          "confidence": 0.92,
+          "confidence_band": "high",
+          "evidence_ids": [],
+          "captured_at": "2026-05-08T00:00:00Z"
+        }
+      },
+      "nominee_flag": "clear",
+      "rationale": null
+    },
+    {
+      "kind": "owns",
+      "from_id": "ubo_e_coastal_equity_partners_pte_ltd",
+      "to_id": "ubo_e_u67120mh2024ptc444789",
+      "ownership_pct": 70.0,
+      "designation": null,
+      "confidence": {
+        "value": 0.55,
+        "provenance": {
+          "source_agent": "ubo_graph",
+          "source_system": "mca_mock",
+          "confidence": 0.55,
+          "confidence_band": "medium_low",
+          "evidence_ids": [],
+          "captured_at": "2026-05-08T00:00:00Z"
+        }
+      },
+      "nominee_flag": "nominee_suspected",
+      "rationale": "Foreign corporate holder (SG) with 70.0% ownership; structure suggests nominee/shell"
+    },
+    {
+      "kind": "owns",
+      "from_id": "ubo_e_anchor_trust_services_bvi",
+      "to_id": "ubo_e_u67120mh2024ptc444789",
+      "ownership_pct": 25.0,
+      "designation": null,
+      "confidence": {
+        "value": 0.55,
+        "provenance": {
+          "source_agent": "ubo_graph",
+          "source_system": "mca_mock",
+          "confidence": 0.55,
+          "confidence_band": "medium_low",
+          "evidence_ids": [],
+          "captured_at": "2026-05-08T00:00:00Z"
+        }
+      },
+      "nominee_flag": "nominee_suspected",
+      "rationale": "Foreign corporate holder (VG) with 25.0% ownership; structure suggests nominee/shell"
+    }
+  ]
+}

@@ -187,3 +187,151 @@ def test_typed_failure_payload_round_trips() -> None:
     assert revived.payload.status == "error"
     assert revived.payload.error is not None
     assert revived.payload.error.type == "ValueError"
+
+
+# ───────────── Story 6.7 — CockpitChatToolLedgerPayload ─────────────
+
+
+from contracts.ledger import CockpitChatToolLedgerPayload  # noqa: E402
+
+
+def _chat_payload(**overrides: object) -> CockpitChatToolLedgerPayload:
+    base: dict[str, object] = {
+        "tool_name": "query_ledger",
+        "request_args": {"case_id": "case_x", "limit": 50},
+        "result_summary": "12 ledger entries returned",
+        "duration_ms": 7,
+        "status": "ok",
+    }
+    base.update(overrides)
+    return CockpitChatToolLedgerPayload.model_validate(base)
+
+
+def test_cockpit_chat_payload_round_trips() -> None:
+    p = _chat_payload()
+    revived = CockpitChatToolLedgerPayload.model_validate_json(p.model_dump_json())
+    assert revived == p
+    assert revived.kind == "cockpit_chat_tool"
+
+
+def test_cockpit_chat_payload_rejects_empty_result_summary() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        _chat_payload(result_summary="")
+
+
+def test_cockpit_chat_payload_rejects_unknown_tool_name() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        _chat_payload(tool_name="not_a_tool")
+
+
+def test_cockpit_chat_payload_resolves_under_ledger_entry_union() -> None:
+    """The discriminated union must resolve to the typed arm, not dict."""
+    from datetime import UTC, datetime
+
+    from ulid import ULID
+
+    from contracts.ledger import ActorType, LedgerEntry
+
+    entry = LedgerEntry(
+        id=f"led_{ULID()!s}",
+        case_id=None,
+        actor_type=ActorType.AGENT,
+        actor_id="cockpit_chat",
+        action="cockpit_chat.tool_invoked",
+        payload=_chat_payload(),
+        recorded_at=datetime.now(UTC),
+    )
+    revived = LedgerEntry.model_validate_json(entry.model_dump_json())
+    assert isinstance(revived.payload, CockpitChatToolLedgerPayload)
+    assert revived.payload.tool_name == "query_ledger"
+
+
+# ───────────── Story 7.5 — OfficerDecisionUndonePayload ─────────────
+
+
+def test_officer_decision_undone_payload_round_trips() -> None:
+    from contracts.ledger import OfficerDecisionUndonePayload
+
+    payload = OfficerDecisionUndonePayload(
+        decision_id="dec_test_123",
+        reason="Officer realized the OFAC hit needed deeper review before sealing.",
+    )
+    parsed = OfficerDecisionUndonePayload.model_validate_json(payload.model_dump_json())
+    assert parsed == payload
+    assert parsed.kind == "officer_decision_undone"
+
+
+def test_officer_decision_undone_payload_rejects_short_reason() -> None:
+    from contracts.ledger import OfficerDecisionUndonePayload
+
+    with pytest.raises(ValidationError):
+        OfficerDecisionUndonePayload(decision_id="dec_x", reason="too short")
+
+
+def test_officer_decision_committed_payload_round_trips() -> None:
+    from contracts.ledger import OfficerDecisionCommittedPayload
+
+    payload = OfficerDecisionCommittedPayload(
+        decision_id="dec_test_1",
+        outcome="approve",
+        conditions=[],
+        rationale_hash="a" * 64,
+    )
+    parsed = OfficerDecisionCommittedPayload.model_validate_json(payload.model_dump_json())
+    assert parsed == payload
+    assert parsed.kind == "officer_decision_committed"
+
+
+def test_officer_decision_committed_rejects_short_hash() -> None:
+    from contracts.ledger import OfficerDecisionCommittedPayload
+
+    with pytest.raises(ValidationError):
+        OfficerDecisionCommittedPayload(
+            decision_id="dec_x",
+            outcome="approve",
+            conditions=[],
+            rationale_hash="abc",
+        )
+
+
+def test_decision_sealed_payload_round_trips() -> None:
+    from contracts.ledger import DecisionSealedPayload
+
+    payload = DecisionSealedPayload(decision_id="dec_test_1", outcome="approve")
+    parsed = DecisionSealedPayload.model_validate_json(payload.model_dump_json())
+    assert parsed == payload
+    assert parsed.kind == "decision_sealed"
+
+
+def test_officer_decision_undone_payload_resolves_under_ledger_entry_union() -> None:
+    """The discriminated union must resolve to the typed arm, not dict."""
+    from datetime import UTC, datetime
+
+    from contracts.ledger import (
+        ActorType,
+        LedgerEntry,
+        OfficerDecisionUndonePayload,
+    )
+
+    payload = OfficerDecisionUndonePayload(
+        decision_id="dec_test_123",
+        reason="Officer realized the OFAC hit needed deeper review before sealing.",
+    )
+    entry = LedgerEntry(
+        id=f"led_{ULID()!s}",
+        case_id=SHREE_VENKAT_ID,
+        actor_type=ActorType.OFFICER,
+        actor_id="user_analyst",
+        action="officer.decision_undone",
+        payload=payload,
+        recorded_at=datetime.now(UTC),
+    )
+    revived = LedgerEntry.model_validate_json(entry.model_dump_json())
+    assert isinstance(revived.payload, OfficerDecisionUndonePayload)
+    assert revived.payload.decision_id == "dec_test_123"

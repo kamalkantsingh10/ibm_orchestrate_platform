@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/cockpit.db"
     # Story 3.1 — append-only JSONL ledger path (cwd-relative by default).
     ledger_path: Path = Path("./data/ledger.jsonl")
+    # Story 4 hardening — root for per-case PDF uploads. The Makefile pins
+    # this to the repo-root ``fixtures/uploads`` path; the cwd-relative
+    # default still works when the API is launched from the repo root.
+    uploads_root: Path = Path("./fixtures/uploads")
 
 
 @lru_cache(maxsize=1)

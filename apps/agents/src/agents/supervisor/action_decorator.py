@@ -30,10 +30,16 @@ from datetime import UTC, datetime
 from typing import ParamSpec, TypeVar
 
 from cockpit_api.services.ledger_service import get_ledger_writer
+from cockpit_api.services.sse_registry import publish_safe
 from contracts.agent_action import AgentActionLedgerEntry, ErrorInfo
 from contracts.cases import CaseId
 from contracts.ledger import ActorType, LedgerEntry
-from pydantic import BaseModel
+from contracts.reasoning_trace import (
+    IncompleteReasoningTraceError,
+    ReasoningTrace,
+)
+from contracts.sse import SseEvent
+from pydantic import BaseModel, ValidationError
 from ulid import ULID
 
 logger = logging.getLogger(__name__)
@@ -52,6 +58,10 @@ OutputT = TypeVar("OutputT", bound=BaseModel)
 
 _runtime_model_id: ContextVar[str | None] = ContextVar("agent_action_model_id", default=None)
 _runtime_prompt_hash: ContextVar[str | None] = ContextVar("agent_action_prompt_hash", default=None)
+# Story 6.4 — task-local 4-section reasoning trace. ContextVars are
+# per-task in Python 3.11+ so concurrent agent invocations don't
+# cross-pollute. Wrapper resets to None before/after each call.
+_runtime_reasoning_trace: ContextVar[ReasoningTrace | None] = ContextVar("agent_action_reasoning_trace", default=None)
 
 
 def set_runtime_model_id(model_id: str) -> None:
@@ -62,6 +72,27 @@ def set_runtime_model_id(model_id: str) -> None:
 def set_runtime_prompt_hash(prompt_hash: str) -> None:
     """Set the SHA-256 prompt hash for the current task's ledger entry."""
     _runtime_prompt_hash.set(prompt_hash)
+
+
+def set_runtime_reasoning_trace(trace: ReasoningTrace) -> None:
+    """Attach a ReasoningTrace to the current task's ledger entry.
+
+    Called by agent function bodies before they return. The decorator
+    reads this ContextVar after the wrapped function returns and
+    substitutes it into the AgentActionLedgerEntry on the success path.
+
+    Eagerly re-validates the trace and raises IncompleteReasoningTraceError
+    on contract failure. Eager validation surfaces the typed error
+    immediately (vs. a silent invalid trace at ledger-write time).
+    """
+    try:
+        ReasoningTrace.model_validate(trace.model_dump())
+    except ValidationError as exc:
+        raise IncompleteReasoningTraceError(
+            agent_id="(set via set_runtime_reasoning_trace)",
+            errors=[dict(e) for e in exc.errors()],
+        ) from exc
+    _runtime_reasoning_trace.set(trace)
 
 
 # ───────────────────────────── error type ─────────────────────────────────
@@ -123,6 +154,7 @@ def agent_action(
             # into this entry.
             _runtime_model_id.set(None)
             _runtime_prompt_hash.set(None)
+            _runtime_reasoning_trace.set(None)
 
             started_at = datetime.now(UTC)
             try:
@@ -241,6 +273,7 @@ async def _record_success(
         completed_at=completed_at,
         duration_ms=_duration_ms(started_at, completed_at),
         status="ok",
+        reasoning_trace=_runtime_reasoning_trace.get(),
     )
     entry = LedgerEntry(
         id=_placeholder_ledger_id(),
@@ -252,6 +285,16 @@ async def _record_success(
         recorded_at=datetime.now(UTC),
     )
     await get_ledger_writer().append(entry)
+    # Story 4.6 — fan-out an SSE event so the cockpit-ui invalidates
+    # `['cases', caseId, 'agent-mesh-state']`. Best-effort; registry
+    # failures are logged but do not abort the agent path.
+    await publish_safe(
+        case_id,
+        SseEvent(
+            event="agent.state_changed",
+            data={"case_id": case_id, "agent_slug": agent_id, "state": "complete"},
+        ),
+    )
 
 
 async def _record_failure(
@@ -303,3 +346,12 @@ async def _record_failure(
             case_id,
             writer_exc,
         )
+        return
+    # Story 4.6 — best-effort SSE fan-out for the failure case.
+    await publish_safe(
+        case_id,
+        SseEvent(
+            event="agent.state_changed",
+            data={"case_id": case_id, "agent_slug": agent_id, "state": "blocked"},
+        ),
+    )

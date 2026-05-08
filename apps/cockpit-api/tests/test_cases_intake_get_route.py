@@ -140,3 +140,142 @@ async def test_get_400_without_demo_user_header(
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get(f"/v1/cases/{VORA_CAPITAL_ID}/intake/document_intelligence")
     assert resp.status_code == 400
+
+
+# ───────────── Story 6.2 — GET /intake/screening ─────────────
+
+
+async def _seed_case_and_screening_intake(engine: AsyncEngine) -> Case:
+    """Seed Vora + a hand-rolled ScreeningAgentOutput for endpoint tests."""
+    from datetime import date
+
+    from contracts.screening import ScreeningAgentOutput, ScreeningHit
+
+    fixtures = get_demo_case_fixtures(datetime.now(UTC))
+    target = next(c for c in fixtures if c.id == VORA_CAPITAL_ID)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+
+    score_pf: ProvenancedField[float] = ProvenancedField(
+        value=0.73,
+        provenance=Provenance(
+            source_agent="screening",
+            source_system="screening_mock",
+            confidence=0.73,
+            confidence_band=to_band(0.73),
+            evidence_ids=[f"led_{ULID()!s}"],
+            captured_at=datetime.now(UTC),
+        ),
+    )
+    output = ScreeningAgentOutput(
+        case_id=target.id,
+        subjects_screened=1,
+        hits=[
+            ScreeningHit(
+                hit_id="hit_mock_abc123",
+                subject_id="ubo_p_09876544",
+                matched_name="Patel R.",
+                name_match_score=score_pf,
+                date_of_birth=date(1961, 5, 12),
+                categories=["sanctions"],
+                source_lists=["OFAC SDN"],
+            )
+        ],
+    )
+    async with factory() as session:
+        await CaseRepo.insert(session, target)
+        await IntakeRepo.upsert(session, target.id, "screening", output)
+        await session.commit()
+    return target
+
+
+async def test_get_screening_returns_typed_output(
+    engine_with_app: AsyncEngine,
+) -> None:
+    case = await _seed_case_and_screening_intake(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/v1/cases/{case.id}/intake/screening", headers=HEADERS)
+    assert resp.status_code == 200
+    body: dict[str, Any] = resp.json()
+    assert body["case_id"] == case.id
+    assert body["subjects_screened"] == 1
+    assert len(body["hits"]) == 1
+    hit = body["hits"][0]
+    assert hit["matched_name"] == "Patel R."
+    assert hit["name_match_score"]["value"] == 0.73
+    assert "sanctions" in hit["categories"]
+
+
+async def test_get_screening_404_when_intake_not_run(
+    engine_with_app: AsyncEngine,
+) -> None:
+    fixtures = get_demo_case_fixtures(datetime.now(UTC))
+    target = next(c for c in fixtures if c.id == VORA_CAPITAL_ID)
+    factory = async_sessionmaker(engine_with_app, expire_on_commit=False)
+    async with factory() as session:
+        await CaseRepo.insert(session, target)
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/v1/cases/{target.id}/intake/screening", headers=HEADERS)
+    assert resp.status_code == 404
+    assert "screening intake not yet run" in resp.json()["detail"].lower()
+
+
+# ───────────── Story 7.3 — GET /intake/writing ─────────────
+
+
+async def _seed_case_and_writing_intake(engine: AsyncEngine) -> Case:
+    """Seed Vora + a hand-rolled DraftedRationale for endpoint tests."""
+    from contracts.writing import CitedClaim, DraftedRationale
+
+    fixtures = get_demo_case_fixtures(datetime.now(UTC))
+    target = next(c for c in fixtures if c.id == VORA_CAPITAL_ID)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    led_id = f"led_{ULID()!s}"
+    output = DraftedRationale(
+        case_id=target.id,
+        html=(f'<p>Approve based on <span data-ledger-id="{led_id}" class="citation-token">screening</span>.</p>'),
+        paragraphs=["Approve based on screening.", "No open hits."],
+        cited_claims=[CitedClaim(text="screening", evidence_ledger_id=led_id)],
+        model_id="fixture-writing-v1",
+    )
+    async with factory() as session:
+        await CaseRepo.insert(session, target)
+        await IntakeRepo.upsert(session, target.id, "writing", output)
+        await session.commit()
+    return target
+
+
+async def test_get_writing_returns_drafted_rationale(
+    engine_with_app: AsyncEngine,
+) -> None:
+    case = await _seed_case_and_writing_intake(engine_with_app)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/v1/cases/{case.id}/intake/writing", headers=HEADERS)
+    assert resp.status_code == 200
+    body: dict[str, Any] = resp.json()
+    assert body["case_id"] == case.id
+    assert body["html"].startswith("<p>")
+    assert "data-ledger-id=" in body["html"]
+    assert 2 <= len(body["paragraphs"]) <= 4
+    assert body["model_id"] == "fixture-writing-v1"
+
+
+async def test_get_writing_404_when_writing_not_run(
+    engine_with_app: AsyncEngine,
+) -> None:
+    fixtures = get_demo_case_fixtures(datetime.now(UTC))
+    target = next(c for c in fixtures if c.id == VORA_CAPITAL_ID)
+    factory = async_sessionmaker(engine_with_app, expire_on_commit=False)
+    async with factory() as session:
+        await CaseRepo.insert(session, target)
+        await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get(f"/v1/cases/{target.id}/intake/writing", headers=HEADERS)
+    assert resp.status_code == 404
+    assert "writing agent has not yet run" in resp.json()["detail"].lower()

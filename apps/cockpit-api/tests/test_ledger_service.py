@@ -234,3 +234,40 @@ async def test_file_created_lazily_on_first_append(tmp_path: Path) -> None:
 
     entries = await reader.read_all()
     assert len(entries) == 1
+
+
+# ───────────── Story 6.5 — read_by_id ─────────────
+
+
+async def test_read_by_id_returns_entry_with_matching_id(
+    writer_and_reader: tuple[LedgerWriter, LedgerReader],
+) -> None:
+    writer, reader = writer_and_reader
+    appended = await writer.append(_stub_entry(actor_id="screening"))
+    found = await reader.read_by_id(appended.id)
+    assert found is not None
+    assert found.id == appended.id
+    assert found.actor_id == "screening"
+
+
+async def test_read_by_id_returns_none_for_missing_id(
+    writer_and_reader: tuple[LedgerWriter, LedgerReader],
+) -> None:
+    writer, reader = writer_and_reader
+    await writer.append(_stub_entry())
+    fake_id = f"led_{ULID()!s}"
+    assert await reader.read_by_id(fake_id) is None
+
+
+async def test_read_by_id_consistent_across_multiple_appends(
+    writer_and_reader: tuple[LedgerWriter, LedgerReader],
+) -> None:
+    writer, reader = writer_and_reader
+    ids: list[str] = []
+    for i in range(5):
+        appended = await writer.append(_stub_entry(actor_id=f"agent_{i}"))
+        ids.append(appended.id)
+    for i, eid in enumerate(ids):
+        found = await reader.read_by_id(eid)
+        assert found is not None
+        assert found.actor_id == f"agent_{i}"

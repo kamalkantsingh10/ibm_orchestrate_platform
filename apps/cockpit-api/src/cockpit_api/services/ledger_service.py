@@ -112,6 +112,19 @@ class LedgerReader:
                 match = entry
         return match
 
+    async def read_by_id(self, entry_id: str) -> LedgerEntry | None:
+        """Return the ledger entry with the given id, or None — Story 6.5 / AC #3.
+
+        Demo implementation reads all lines and filters; the JSONL ledger is
+        small enough (<10k entries for any demo run) that an index isn't
+        worth the complexity. A real platform's Postgres-backed ledger
+        would have a primary-key lookup.
+        """
+        for entry in await self.read_all():
+            if entry.id == entry_id:
+                return entry
+        return None
+
     async def count(self) -> int:
         """Return total entry count."""
         if not self._path.exists():

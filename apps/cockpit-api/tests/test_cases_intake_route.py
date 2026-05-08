@@ -93,7 +93,14 @@ async def test_intake_route_completes_for_seeded_case(engine_with_app: AsyncEngi
     body = resp.json()
     assert body["case_id"] == case.id
     assert body["status"] == "completed"
-    assert body["agents_run"] == ["document_intelligence"]
+    # Story 6.2: five-agent fan-out (doc_intel → entity_verification → ubo_graph → screening → risk_scoring).
+    assert body["agents_run"] == [
+        "document_intelligence",
+        "entity_verification",
+        "ubo_graph",
+        "screening",
+        "risk_scoring",
+    ]
     assert body["fields_extracted"] >= 1
 
 
@@ -130,14 +137,19 @@ async def test_intake_route_409_when_already_decision_ready(
     assert "intake_scheduled" in body["detail"]
 
 
-# ───────────── 401 missing auth header ─────────────
+# ───────────── auth — intentionally none (tool surface) ─────────────
 
 
-async def test_intake_route_400_without_demo_user_header(
+async def test_intake_route_no_auth_required_for_agent_tool_path(
     engine_with_app: AsyncEngine, tmp_writer: LedgerWriter
 ) -> None:
-    """The demo's auth dep returns 400 (not 401) on missing header — mirrors Story 2-2."""
+    """Intake is exposed as a tool to the cloud Orchestrate runtime, which
+    does NOT send the demo-user header. The endpoint must respond with the
+    case's own 404 (when the case doesn't exist) instead of a 400 missing-
+    header gate. Mirrors the Story 4.1 contract for ``GET /v1/cases``.
+    """
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(f"/v1/cases/{VORA_CAPITAL_ID}/intake")
-    assert resp.status_code == 400
+    # No row was seeded → CaseSupervisor's CaseNotFoundError → 404.
+    assert resp.status_code == 404

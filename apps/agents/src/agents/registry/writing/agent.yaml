@@ -1,0 +1,40 @@
+# Writing agent manifest — Story 7.3 ADK integration.
+#
+# Imported into watsonx Orchestrate (cloud or Developer Edition) via:
+#   orchestrate agents import -f .../agent.yaml
+#
+# The agent's only tool is `draft_rationale`, which the runtime imports
+# from the OpenAPI spec at `./openapi.yaml`. The LLM is the default
+# Orchestrate model — match the choice used by Doc-Intel / Screening.
+
+spec_version: v1
+kind: native
+name: writing
+description: >-
+  Drafts the KYC decision rationale for a case in decision_ready state,
+  synthesizing findings from Document Intelligence, Entity Verification,
+  UBO Graph, Screening, and Risk Scoring. Cites every load-bearing
+  claim by ledger entry id; output is the officer's editable starting
+  point.
+
+llm: groq/openai/gpt-oss-120b
+style: default
+
+instructions: |
+  You are the Writing Agent. Your only job is to invoke the
+  `draft_rationale` tool with the supplied case_id and return the result.
+
+  When the user asks you to draft a rationale:
+  1. Identify the case_id (looks like `case_<26-char ULID>`).
+  2. Call `draft_rationale` exactly once with that case_id.
+  3. Read the response and produce a short summary: number of paragraphs,
+     number of citations, the model_id used, and a one-line preview of
+     the rationale's first paragraph.
+
+  Never invent rationale content. If the tool fails, surface the error
+  verbatim and suggest the user re-run after intake completes.
+
+tools:
+  - draft_rationale
+
+collaborators: []

@@ -235,10 +235,18 @@ async def main() -> int:
         appended = await _seed_ledger(fixtures, cases_seeded)
         print(f"Ledger:       appended {appended} bootstrap entries.")
 
-        if cases_seeded:
+        # Story 4 hardening — let the demo presenter choose whether intake
+        # runs at seed time. SEED_SKIP_INTAKE=1 leaves every case in
+        # ``intake_scheduled`` with no agent ledger entries so the cockpit's
+        # Agent Copilot Pane starts all-idle and the analyst can demo the
+        # live "Process now → SSE → pane animates" flow.
+        skip_intake = os.environ.get("SEED_SKIP_INTAKE", "").lower() in {"1", "true", "yes"}
+        if cases_seeded and not skip_intake:
             print("Running case intake...")
             completed = await _run_intake_for_fixtures(engine, fixtures)
             print(f"Intake:       completed for {completed} case(s).")
+        elif cases_seeded and skip_intake:
+            print('Intake:       skipped (SEED_SKIP_INTAKE=1) — click "Process now" in the cockpit.')
     finally:
         await engine.dispose()
     return 0

@@ -2,11 +2,17 @@
 # verify_demo.sh — smoke check the running demo (Story 1.5 AC #4 + Story 2.3 AC #12).
 #
 # Six checks. Each prints ✓/✗ + an actionable hint on failure. Exit 1 if
-# any check fails. CI=1 skips the ADK runtime check (the agents container
-# isn't typically brought up in CI).
+# any check fails. CI=1 skips the agent-runtime reachability check (neither
+# ngrok nor the Developer Edition is expected in CI).
+#
+# Check 6 was rewritten 2026-05-07 alongside the cloud-Orchestrate move:
+# instead of probing the local Developer Edition, it now confirms the agent
+# runtime is reachable by either (a) an active ngrok tunnel on port 4040
+# (cloud-primary path) or (b) `orchestrate server status` (fallback path).
+# Either signal counts as healthy.
 #
 # Usage:  bash tools/scripts/verify_demo.sh
-#         CI=1 bash tools/scripts/verify_demo.sh   # skip ADK check
+#         CI=1 bash tools/scripts/verify_demo.sh   # skip agent-runtime check
 
 set -uo pipefail
 
@@ -73,15 +79,29 @@ else
   failures=$((failures + 1))
 fi
 
-# ─── Check 6: ADK Developer Edition (skipped in CI) ──────────────────────────
+# ─── Check 6: agent runtime reachable (ngrok tunnel OR Developer Edition) ───
+# Cloud-primary path: ngrok tunnel exposing localhost:8000 to cloud Orchestrate.
+# Fallback: local Developer Edition responding to `orchestrate server status`.
+# Either passes; both absent fails. Skipped under CI=1.
+NGROK_API="${NGROK_API:-http://127.0.0.1:4040/api/tunnels}"
+
 if [[ "${CI:-}" == "1" ]]; then
-  printf "  ${YELLOW}-${NC} ADK runtime check skipped (CI=1)\n"
+  printf "  ${YELLOW}-${NC} agent-runtime check skipped (CI=1)\n"
 else
-  if (cd "${ROOT}/apps/agents" && poetry run orchestrate server status >/dev/null 2>&1); then
-    ok "ADK Developer Edition reports running"
+  _tunnel_url="$(curl -sf "${NGROK_API}" 2>/dev/null \
+    | python3 -c "import json,sys
+try:
+    t = json.load(sys.stdin).get('tunnels', [])
+    print(next((x['public_url'] for x in t if x.get('public_url','').startswith('https')), ''), end='')
+except Exception:
+    pass" 2>/dev/null)"
+  if [[ -n "${_tunnel_url}" ]]; then
+    ok "ngrok tunnel up at ${_tunnel_url} (cloud Orchestrate reachable)"
+  elif (cd "${ROOT}/apps/agents" && poetry run orchestrate server status >/dev/null 2>&1); then
+    ok "ADK Developer Edition reports running (fallback path)"
   else
-    fail "ADK Developer Edition not running" \
-         "run: make adk-up (one-time docker pull on first run)"
+    fail "agent runtime not reachable — no ngrok tunnel and no Developer Edition" \
+         "cloud path: start \`ngrok http 8000\` then \`make tunnel-sync\`. fallback: \`make adk-up\`."
     failures=$((failures + 1))
   fi
 fi

@@ -1,0 +1,10 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: UBO Graph — three-node ownership chain (parent + two children).
+     viewBox 64×64. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="32" cy="14" r="6" />
+  <circle cx="16" cy="46" r="6" />
+  <circle cx="48" cy="46" r="6" />
+  <line x1="29" y1="19" x2="19" y2="40" />
+  <line x1="35" y1="19" x2="45" y2="40" />
+</svg>

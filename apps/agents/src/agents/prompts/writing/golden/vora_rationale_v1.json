@@ -1,0 +1,30 @@
+{
+  "case": {
+    "customer_metadata": {
+      "customer_name": "Vora Capital Holdings Pvt Ltd"
+    },
+    "state": "decision_ready"
+  },
+  "extracted_fields": [
+    { "field_name": "company_name" },
+    { "field_name": "cin" },
+    { "field_name": "incorporation_date" },
+    { "field_name": "registered_address" },
+    { "field_name": "din" },
+    { "field_name": "director_name" },
+    { "field_name": "ubo_chain" },
+    { "field_name": "shareholder_summary" },
+    { "field_name": "account_holder_name" }
+  ],
+  "entity_status": "match_with_minor_diffs",
+  "ubo_summary": "6 nodes, 3 nominee-suspected edges spanning IN → SG → BVI",
+  "screening_summary": "0 open hits across sanctions / PEP / adverse-media; 2 auto-dismissed",
+  "risk_summary": "total 71/100, band medium_high; geography 22, structure 18 dominate",
+  "ledger_ids": {
+    "document_intelligence": "led_01ABCDEFGHJKMNPQRSTVWXYZ12",
+    "entity_verification": "led_01HXY3GHJKMNPQRSTVWXYZ7HX2",
+    "ubo_graph": "led_01HXY4GHJKMNPQRSTVWXYZ7HX3",
+    "screening": "led_01HXY5GHJKMNPQRSTVWXYZ7HX4",
+    "risk_scoring": "led_01HXY6GHJKMNPQRSTVWXYZ7HX5"
+  }
+}

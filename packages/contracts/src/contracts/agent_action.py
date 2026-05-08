@@ -17,6 +17,8 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from contracts.reasoning_trace import ReasoningTrace
+
 
 class ErrorInfo(BaseModel):
     """Error metadata recorded on failure-path agent actions."""
@@ -49,6 +51,10 @@ class AgentActionLedgerEntry(BaseModel):
     duration_ms: int = Field(ge=0)
     status: Literal["ok", "error"]
     error: ErrorInfo | None = None
+    # Story 6.4 — optional 4-section reasoning trace. None when the agent
+    # didn't attach one; required-shape (all four sections min-length 12)
+    # when present.
+    reasoning_trace: ReasoningTrace | None = None
 
     @field_validator("started_at", "completed_at")
     @classmethod

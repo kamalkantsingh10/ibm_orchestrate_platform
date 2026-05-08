@@ -80,8 +80,15 @@ class CaseRepo:
         return _to_contract(row) if row is not None else None
 
     @staticmethod
-    async def list_ordered_by_created_at_desc(session: AsyncSession, limit: int = 100) -> list[Case]:
-        """Return cases ordered newest-first. Used by the queue rail (Story 2-3)."""
+    async def list_all(session: AsyncSession, limit: int = 100) -> list[Case]:
+        """Return cases (newest-first by repo convention; service layer owns final ordering).
+
+        Story 4.1 moved Queue Rail ordering into ``case_service.queue_order``.
+        This method retains a stable repo-level order (newest first) so callers
+        without sort needs see deterministic output, but it is no longer the
+        contract — consumers wanting risk × SLA × continuity must go through
+        ``case_service.list_cases``.
+        """
         stmt = select(CaseRow).order_by(CaseRow.created_at.desc()).limit(limit)
         result = await session.execute(stmt)
         return [_to_contract(row) for row in result.scalars().all()]
@@ -110,6 +117,38 @@ class CaseRepo:
         if target is CaseState.CLOSED and row.closure_date is None:
             row.closure_date = datetime.now(UTC)
 
+        await session.flush()
+        await session.refresh(row)
+        return _to_contract(row)
+
+    @staticmethod
+    async def update_risk_band(
+        session: AsyncSession,
+        case_id: str,
+        band: str,
+    ) -> Case:
+        """Denormalize the risk band onto the case row — Story 5.6 / AC #5.
+
+        The 3-tier RiskBand on the wire (``low | medium | high``) is widened
+        to the 4-tier ``cases.risk_band`` column (``low | medium_low |
+        medium_high | high``) at this boundary: ``medium`` → ``medium_high``
+        (keeps Story 4.1's queue-rail risk-driven sort stable). Also bumps
+        ``updated_at`` so the queue rail's ``(risk DESC, sla ASC,
+        updated_at DESC)`` ordering surfaces the recalc.
+        """
+        row = await session.get(CaseRow, case_id)
+        if row is None:
+            raise LookupError(f"Case {case_id!r} not found")
+        if band == "low":
+            mapped = "low"
+        elif band == "medium":
+            mapped = "medium_high"
+        elif band == "high":
+            mapped = "high"
+        else:
+            raise ValueError(f"unknown risk band {band!r}")
+        row.risk_band = mapped
+        row.updated_at = datetime.now(UTC)
         await session.flush()
         await session.refresh(row)
         return _to_contract(row)

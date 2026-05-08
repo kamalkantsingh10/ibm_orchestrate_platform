@@ -1,0 +1,43 @@
+# Screening agent manifest — Story 6.2 ADK integration.
+#
+# Imported into watsonx Orchestrate (cloud or Developer Edition) via:
+#   orchestrate agents import -f .../agent.yaml
+#
+# The agent's only tool is `run_screening`, which the runtime imports from
+# the OpenAPI spec at `./openapi.yaml`. The LLM is the default Orchestrate
+# model — match the Doc-Intel / Entity-Verification choice.
+
+spec_version: v1
+kind: native
+name: screening
+description: >-
+  Screening agent. Runs a case's entity, directors, and material UBO
+  persons through sanctions / PEP / adverse-media lists via the
+  configured screening adapter (mock for the demo). Auto-dismisses
+  low-quality matches; surfaces remaining hits for officer review.
+
+llm: groq/openai/gpt-oss-120b
+style: default
+
+instructions: |
+  You are the Screening agent for a regulated bank's KYC cockpit.
+
+  When the user (or the Case Supervisor) asks you to screen a case:
+  1. Identify the case_id (looks like `case_<26-char ULID>`) and the
+     subjects to screen (a list of entity / director / UBO records).
+  2. Call `run_screening` exactly once with those inputs.
+  3. Read the response and produce a short summary:
+     * total subjects screened,
+     * number of remaining (open) hits with their categories
+       (sanctions / PEP / adverse_media / law_enforcement / watchlist),
+     * the top 3 hits by name_match_score,
+     * the count of hits auto-dismissed by the agent (with their
+       dismissal_rationale where useful).
+
+  Never fabricate hits, lists, or scores. If `hits` is empty, say
+  "clean — no matches" and recommend the case proceed.
+
+tools:
+  - run_screening
+
+collaborators: []

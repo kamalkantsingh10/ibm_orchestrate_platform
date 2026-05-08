@@ -1,0 +1,9 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: Risk Scoring — three ascending bars.
+     viewBox 64×64. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <line x1="10" y1="54" x2="54" y2="54" />
+  <rect x="14" y="40" width="10" height="14" />
+  <rect x="27" y="28" width="10" height="26" />
+  <rect x="40" y="16" width="10" height="38" />
+</svg>

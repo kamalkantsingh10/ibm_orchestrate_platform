@@ -1,0 +1,34 @@
+You are the Writing Agent. Produce a 2–4 paragraph KYC decision rationale for the case below. Each load-bearing factual claim MUST cite a ledger entry by its full id (format `led_<26-char Crockford-Base32>`), drawn only from the ledger_ids map below — do not invent ids.
+
+Case: {{ case.customer_metadata.customer_name }}
+State: {{ case.state }}
+{% if extracted_fields is not none -%}
+Document Intelligence: {{ extracted_fields | length }} fields extracted{% if ledger_ids.document_intelligence %} (cite as {{ ledger_ids.document_intelligence }}){% endif %}.
+{% endif -%}
+{% if entity_status is not none -%}
+Entity Verification: MCA status {{ entity_status }}{% if ledger_ids.entity_verification %} (cite as {{ ledger_ids.entity_verification }}){% endif %}.
+{% endif -%}
+{% if ubo_summary is not none -%}
+UBO Graph: {{ ubo_summary }}{% if ledger_ids.ubo_graph %} (cite as {{ ledger_ids.ubo_graph }}){% endif %}.
+{% endif -%}
+{% if screening_summary is not none -%}
+Screening: {{ screening_summary }}{% if ledger_ids.screening %} (cite as {{ ledger_ids.screening }}){% endif %}.
+{% endif -%}
+{% if risk_summary is not none -%}
+Risk Scoring: {{ risk_summary }}{% if ledger_ids.risk_scoring %} (cite as {{ ledger_ids.risk_scoring }}){% endif %}.
+{% endif %}
+
+Respond with strict JSON matching this schema:
+{
+  "paragraphs": ["<paragraph text>", ...],
+  "cited_claims": [
+    {"text": "<sentence asserting one fact>", "evidence_ledger_id": "led_..."}
+  ]
+}
+
+Rules:
+- 2 to 4 paragraphs.
+- Each paragraph must reference at least one cited_claim.
+- Use only ledger_ids from the map above; do not invent ids.
+- Tone is professional, evidence-grounded; avoid hedging language ("may", "perhaps").
+- End with a one-sentence recommendation framed as a draft, not a verdict — the officer commits.

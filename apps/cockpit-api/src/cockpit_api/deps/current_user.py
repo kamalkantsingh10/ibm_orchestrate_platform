@@ -29,3 +29,25 @@ def get_current_user(
             detail=f"Unknown {_HEADER_NAME}: {x_cockpit_demo_user}",
         )
     return user
+
+
+def get_optional_current_user(
+    x_cockpit_demo_user: str | None = Header(default=None, alias=_HEADER_NAME),
+) -> User | None:
+    """Story 4.1 — header-optional variant for endpoints exposed as agent tools.
+
+    Returns the matched ``User`` when a known header value is present, ``None``
+    when no header is sent (the cloud Orchestrate runtime path), and raises
+    400 for a *present but unknown* header value (the same fail-closed
+    behaviour as ``get_current_user`` for header strings that look like
+    spoofing attempts).
+    """
+    if not x_cockpit_demo_user:
+        return None
+    user = find_user_by_id(x_cockpit_demo_user)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown {_HEADER_NAME}: {x_cockpit_demo_user}",
+        )
+    return user

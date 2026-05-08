@@ -102,7 +102,7 @@ async def test_get_unknown_id_returns_none(session: AsyncSession) -> None:
     assert await CaseRepo.get(session, _case_id()) is None
 
 
-async def test_list_ordered_by_created_at_desc_returns_newest_first(
+async def test_list_all_returns_newest_first(
     session: AsyncSession,
 ) -> None:
     base = datetime(2026, 4, 30, 12, 0, 0, tzinfo=UTC)
@@ -115,7 +115,7 @@ async def test_list_ordered_by_created_at_desc_returns_newest_first(
         await CaseRepo.insert(session, c)
     await session.commit()
 
-    rows = await CaseRepo.list_ordered_by_created_at_desc(session)
+    rows = await CaseRepo.list_all(session)
     assert [r.id for r in rows] == [newest.id, middle.id, older.id]
 
 

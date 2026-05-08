@@ -1,0 +1,7 @@
+<!-- Story 4.3 art-placeholder; geometric, replace before demo polish.
+     Agent: Entity Verification — shield with checkmark.
+     viewBox 64×64. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M32 6 L52 14 V32 C52 44 42 54 32 58 C22 54 12 44 12 32 V14 Z" />
+  <path d="M22 32 L29 39 L42 25" />
+</svg>

@@ -1,5 +1,9 @@
 # Claude Code local settings (user-specific, should not be committed)
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# Playwright MCP session logs (per-developer; auto-generated)
+.playwright-mcp/
 
 # OS
 .DS_Store
@@ -64,6 +68,11 @@ apps/agents/data/cockpit.db
 apps/agents/data/cockpit.db-journal
 apps/agents/data/cockpit.db-wal
 apps/agents/data/cockpit.db-shm
+apps/cockpit-api/data/ledger.jsonl
+apps/cockpit-api/data/cockpit.db
+apps/cockpit-api/data/cockpit.db-journal
+apps/cockpit-api/data/cockpit.db-wal
+apps/cockpit-api/data/cockpit.db-shm
 
 # Story 3.8 — uploaded PDFs and generated sample PDFs are per-developer
 # mutable state, not committed. demo-reset wipes ./fixtures/uploads/.

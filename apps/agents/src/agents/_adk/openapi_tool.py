@@ -9,12 +9,28 @@ venv (so ``cockpit_api.main:app`` is importable).
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 DEFAULT_HOST = "http://host.docker.internal:8000"
+
+
+def _resolve_host(explicit: str | None) -> str:
+    """Resolution order: explicit arg → COCKPIT_API_PUBLIC_URL env → DEFAULT_HOST.
+
+    The env override is what hosted Orchestrate (SaaS / TechZone trial) needs —
+    it can't reach ``host.docker.internal``, so set ``COCKPIT_API_PUBLIC_URL``
+    to a public tunnel URL (ngrok / cloudflared) before ``make adk-spec``.
+    """
+    if explicit and explicit != DEFAULT_HOST:
+        return explicit
+    env_override = os.environ.get("COCKPIT_API_PUBLIC_URL")
+    if env_override:
+        return env_override.rstrip("/")
+    return DEFAULT_HOST
 
 
 def build_and_write(
@@ -42,6 +58,8 @@ def build_and_write(
     """
     from cockpit_api.main import app  # local import: cockpit-api venv only
 
+    host = _resolve_host(host)
+
     full = app.openapi()
     if path_filter not in full["paths"]:
         raise RuntimeError(
@@ -49,8 +67,13 @@ def build_and_write(
         )
 
     path_item = full["paths"][path_filter]
-    if "post" in path_item:
-        path_item["post"]["operationId"] = operation_id
+    # Override the operationId on whichever verb is present (FastAPI auto-
+    # generates verbose default operation IDs like ``list_cases_v1_cases_get``;
+    # the ADK uses operationId as the tool name, so we pin the friendly name).
+    for verb in ("post", "get", "put", "patch", "delete"):
+        if verb in path_item:
+            path_item[verb]["operationId"] = operation_id
+            break
 
     # IBM ADK's OpenAPI tool importer requires OpenAPI 3.0 (per
     # https://developer.watson-orchestrate.ibm.com/tools/create_openapi_tool.md).
@@ -68,7 +91,12 @@ def build_and_write(
         "servers": [
             {
                 "url": host,
-                "description": ("Cockpit API on the host (resolved from inside the Developer Edition Docker network)."),
+                "description": (
+                    "Cockpit API endpoint reachable by the Orchestrate runtime. "
+                    "For cloud Orchestrate, this is a public ngrok tunnel pointing "
+                    "at the developer's localhost:8000 (refresh via `make tunnel-sync`). "
+                    "For local Developer Edition, this is host.docker.internal."
+                ),
             },
         ],
         "paths": {path_filter: path_item},

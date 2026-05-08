@@ -18,7 +18,7 @@ description: >-
   extracted value with confidence + provenance pointing to the audit
   ledger.
 
-llm: watsonx/ibm/granite-3-2-8b-instruct
+llm: groq/openai/gpt-oss-120b
 style: default
 
 instructions: |

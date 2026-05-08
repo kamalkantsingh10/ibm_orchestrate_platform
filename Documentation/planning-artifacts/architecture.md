@@ -177,6 +177,42 @@ The PRD and original architecture left six decisions open. The demo re-scope res
 
 ---
 
+## Agent Runtime Update (2026-05-07)
+
+**Switched from local ADK Developer Edition to IBM watsonx Orchestrate (cloud).** Agents are authored locally (YAML manifests + OpenAPI tool specs in `apps/agents/src/agents/registry/`) and registered to a cloud Orchestrate tenant via `orchestrate agents import` against an activated cloud environment. The cockpit-api still runs locally on the developer's machine; cloud Orchestrate reaches back to it over HTTP via an ngrok tunnel (URL is hand-rolled into each agent's `openapi.yaml` `servers:` block).
+
+### Why
+- Avoids the Developer Edition Docker stack on every developer machine — lower laptop overhead, faster `make dev` cold-start.
+- Single source of truth for agent registration: the cloud tenant; no drift between developer-local Developer Editions.
+- Closer to a production-shaped path for Path B reviewers — what a bank would actually deploy.
+
+### What changed
+
+| Concern | Before (Developer Edition) | After (cloud Orchestrate) |
+|---|---|---|
+| Agent runtime | Local Docker stack via `orchestrate server start` | Cloud watsonx Orchestrate tenant |
+| Agent registration | `orchestrate agents import` against local `local` env | `orchestrate agents import` against an activated cloud env |
+| LLM calls | Outbound from Developer Edition → watsonx.ai | Internal to cloud Orchestrate |
+| Cockpit-api callback | `host.docker.internal:8000` from inside Developer Edition's Docker network | Public ngrok URL → developer's `localhost:8000` |
+| Chat UI | `orchestrate chat start` (local) | Orchestrate cloud chat surface |
+| Required env | `WATSONX_APIKEY` for Developer Edition | Cloud Orchestrate API key + env activation; ngrok auth token |
+
+### Implications for prior decisions
+
+- **A3 (cockpit-api ↔ agents inter-service):** No longer purely in-process. Cockpit-api invokes agent flows via the Orchestrate SDK; agents call back to cockpit-api over HTTP through the tunnel. Pydantic-typed contracts hold across the network hop — the Path B story is unchanged, only the wire is real now.
+- **I13 (local dev):** No ADK Developer Edition in the local stack. `make dev` brings up cockpit-api + cockpit-ui only; ngrok runs alongside as a long-lived tunnel pointing at `localhost:8000`.
+- **NFR-RI5 (≤60 min clone-to-demo):** Still feasible, but the bootstrap path now requires a cloud Orchestrate account, API key, and ngrok auth token. To be reflected in story `1-5-fresh-clone-to-running-demo-in-sixty-minutes`.
+- **S8 (LLM provider keys):** Reaffirmed — LLM keys live in cloud Orchestrate runtime config; the cockpit codebase owns zero LLM credentials.
+- **Offline demo:** No longer possible — demo needs internet + a working tunnel. Mitigation: keep a screen-recorded fallback.
+- **Path B "wow" surface:** I13 (one-command local) weakens; replaced with **the cloud-registered agent footprint** — a visible Orchestrate tenant with named agents and Pydantic-typed tools.
+
+### Tooling additions (not product capabilities — recorded for completeness)
+
+- **ngrok** — long-lived HTTP tunnel exposing `localhost:8000` so cloud Orchestrate can reach cockpit-api during development. Tunnel URL is currently hand-rolled into each agent's `openapi.yaml` `servers:` block (manual update on tunnel reset; candidate for a `make tunnel-sync` helper).
+- **Playwright MCP server** — Claude Code authoring tool for driving cockpit-ui during development. Not a runtime dependency; not in the deployed image.
+
+---
+
 ## Starter Template Evaluation
 
 ### Primary Technology Domain
@@ -251,6 +287,8 @@ poetry init -n --python "^3.11"
 poetry add cryptography pydantic
 ```
 
+**Agent runtime note (2026-05-07):** After scaffolding, register the cloud Orchestrate tenant as an ADK environment and activate it: `orchestrate env add --name cloud --url <tenant-url>` then `orchestrate env activate cloud`. Subsequent `orchestrate agents import` lands in the cloud tenant. Local Developer Edition is no longer used — see Agent Runtime Update.
+
 ### Architectural Decisions Provided by This Scaffold
 
 **Language & runtime:**
@@ -293,10 +331,10 @@ poetry add cryptography pydantic
 - `pre-commit` framework (language-agnostic; not Husky) running ruff/mypy/eslint on staged files
 
 **Development experience:**
-- ADK Developer Edition for local agent runtime (self-contained Orchestrate copy)
+- **Cloud watsonx Orchestrate** for the agent runtime (see Agent Runtime Update 2026-05-07). ADK CLI used locally only for authoring + registration.
 - FastAPI hot reload via `uvicorn --reload`
 - Vite HMR for cockpit-ui
-- One-command `make dev` brings up the full stack: agents (Developer Edition) + cockpit-api + cockpit-ui
+- One-command `make dev` brings up the local stack: cockpit-api + cockpit-ui. Agents run in cloud Orchestrate; an ngrok tunnel runs alongside `make dev` to expose cockpit-api for cloud→local callbacks.
 
 **Note:** Project initialization with these commands should be the first implementation story. The Makefile + monorepo wiring (Poetry path-deps, pnpm workspace config, pre-commit hooks) is the second.
 
@@ -350,7 +388,7 @@ poetry add cryptography pydantic
 |---|---|---|---|
 | A1 | API style + versioning | **REST + JSON** with `/t/{tenant_id}/v1/...` path-prefix versioning. **No GraphQL, no gRPC** for the public API. | Banks' integration teams expect REST; path-prefix versioning is explicit. |
 | A2 | Real-time channel | **Server-Sent Events (SSE)** over HTTP/2; one stream per case open. **No WebSocket.** | Agent state is one-way (server → client); SSE is the boring 2026 pick — standard HTTP, native `EventSource`, auto-reconnect, plays with cookie auth. |
-| A3 | cockpit-api ↔ agents inter-service | **In-process function call in MVP**; cockpit-api imports agents package and invokes Orchestrate runtime locally. Service split is deployment-time, not code-time. | At MVP scale we don't need a network hop; if scale demands later, extract behind a Pydantic-typed RPC interface (already shaped right). |
+| A3 | cockpit-api ↔ agents inter-service | **Cockpit-api invokes agent flows via the Orchestrate SDK against the cloud tenant; agents call back to cockpit-api over HTTP through an ngrok tunnel.** Pydantic-typed contracts (`packages/contracts`) hold across the network hop. The service split is now real (not deployment-time-only), but contract shape is unchanged. | See Agent Runtime Update 2026-05-07. The original "in-process MVP" choice was retired when agents moved to cloud Orchestrate; the typed contract path is what made the swap cheap. |
 | A4 | API documentation | **OpenAPI 3.1 auto-generated by FastAPI**; **Scalar** for human-readable UI; spec exported as build artifact for bank integration teams | Free with FastAPI; Scalar is the modern reader. |
 | A5 | Error format | **RFC 7807 Problem Details** (`application/problem+json`) | Standard, machine-parseable, recognizable to bank integration teams. |
 | A6 | Pagination | **Cursor-based** for case lists; offset only on stable aggregate dashboards | Cursor is correct for append-heavy data; offsets break under concurrent writes. |
@@ -411,7 +449,7 @@ apps/cockpit-ui/src/
 | I10 | CI secrets | **OIDC-federated** GitHub Actions ↔ IBM Cloud IAM (no long-lived cloud creds in repo); per-environment scoped roles | 2026 norm; eliminates a class of leak. |
 | I11 | DR | **Daily Postgres logical backups + 15-min PITR**; S3 cross-region replication; ledger snapshots hourly; recovery runbook tested quarterly | Meets RPO ≤ 1h, RTO ≤ 4h. |
 | I12 | CDN | **IBM Cloud CDN** in front of cockpit-ui static bucket; Cloudflare as multi-cloud option | Static assets cached at edge; API calls go straight to origin. |
-| I13 | Local dev | **`docker compose up`** brings up Postgres + Redis + LocalStack (S3) + Vault Transit (HSM) + ADK Developer Edition + cockpit-api + cockpit-ui. **Sub-30-min clone-to-demo.** | Directly serves NFR-RI5; the most important DX investment. |
+| I13 | Local dev | **`make dev`** brings up Postgres + Redis + LocalStack (S3) + Vault Transit (HSM) + cockpit-api + cockpit-ui. Agents live in **cloud watsonx Orchestrate**; an ngrok tunnel exposes cockpit-api to the cloud tenant. **Sub-60-min clone-to-demo** (NFR-RI5, relaxed). | Directly serves NFR-RI5; see Agent Runtime Update 2026-05-07 for why Developer Edition is no longer in the local stack. |
 | I14 | Telemetry PII scrubbing | **OTel collector with attribute-redaction processor** at egress; redaction rules versioned in repo; CI test asserts no PII patterns leak | NFR-O3 requires; OTel collector handles natively. |
 
 ### Decision Impact Analysis
@@ -423,7 +461,7 @@ apps/cockpit-ui/src/
 3. **S1 + S2 + S6 + D6** — KeyVault adapter + ledger schema + Ed25519 chain. Without these, no audit-compliant write path.
 4. **A1 + A4 + A10 + S3 + S4** — REST endpoints, OpenAPI export, OIDC, cookie session. The minimum viable API surface.
 5. **A2 + F1 + F2 + F3 + F13** — SSE channel + frontend state + typed client. The cockpit comes alive.
-6. **A3** — Orchestrate ADK agents in-process; first agent wired up (likely Document Intelligence as the simplest entry point).
+6. **A3** — Orchestrate ADK agents **registered to the cloud Orchestrate tenant**; first agent wired up (likely Document Intelligence as the simplest entry point).
 7. **All remaining decisions** — operational hardening, observability, DR, CI/CD.
 
 **Cross-component dependencies:**
@@ -432,7 +470,7 @@ apps/cockpit-ui/src/
 - **Pluggable adapters** (D5 + S1 + S2 + I7) all share the same shape: typed interface + reference impl + alternate impl + conformance suite. This is the Step 5 (Patterns) "Pluggable Adapter" pattern.
 - **Real-time path** (A2 + F1 + D8) — SSE writes to Redis-backed connection registry; agent state changes publish to Redis; SSE handler subscribes; TanStack Query receives event and invalidates. Three components, one flow.
 - **Audit path** (D6 + S1 + S6 + A7) — every officer commit (FR29) AND webhook dispatch (A7) writes a signed entry to the ledger. The HMAC for outbound webhooks is keyed by the same tenant HSM master that signs ledger entries.
-- **Path B story** (NFR-RI1–7) is reinforced primarily by: A10 (Pydantic→OpenAPI→TS), S6 (visible WebCrypto), I2 (VM+Compose), I13 (one-command local). These are the four "I didn't know Orchestrate could do this" surface area decisions.
+- **Path B story** (NFR-RI1–7) is reinforced primarily by: A10 (Pydantic→OpenAPI→TS), S6 (visible WebCrypto), I2 (VM+Compose), and the cloud-registered agent footprint (visible Orchestrate tenant with named agents and Pydantic-typed tools). These are the four "I didn't know Orchestrate could do this" surface area decisions.
 
 ## Implementation Patterns & Consistency Rules
 

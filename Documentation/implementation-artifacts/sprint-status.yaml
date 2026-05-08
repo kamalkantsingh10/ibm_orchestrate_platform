@@ -6,10 +6,11 @@
 # story_location: Documentation/implementation-artifacts
 # scope: DEMO (re-scoped 2026-04-29 — see Documentation/planning-artifacts/sprint-change-proposal-2026-04-29.md)
 #
-# Demo scope: 10 epics, 64 stories. Epic 11 cut entirely. Epics 1, 2, 3, 7, 9, 10
-# substantially gutted to remove enterprise infrastructure (OIDC, multi-tenant,
-# HSM-backed cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest,
-# DR rehearsal, WCAG audit, performance budgets). UI fidelity preserved across
+# Demo scope: 11 epics, 69 stories. Epic 11 cut entirely; Epic 12 (Cockpit Visual
+# Refresh, 5 stories) added 2026-05-08. Epics 1, 2, 3, 7, 9, 10 substantially
+# gutted to remove enterprise infrastructure (OIDC, multi-tenant, HSM-backed
+# cryptographic ledger, multi-cloud adapters, CCO portfolio, pentest, DR
+# rehearsal, WCAG audit, performance budgets). UI fidelity preserved across
 # all retained stories.
 #
 # Cut story files for Epic 1 archived to Documentation/implementation-artifacts/archive/
@@ -45,7 +46,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: 2026-04-27
-last_updated: 2026-05-01  # Epic 3 stories 3.1–3.8 all in review (Amelia)
+last_updated: 2026-05-08  # Epic 7: all 9 stories implemented (review); Epic 12 added (5 stories, backlog)
 project: ibm_orchestrate_platform
 project_key: NOKEY
 tracking_system: file-system
@@ -63,6 +64,7 @@ development_status:
   1-3-cicd-skeleton-with-oidc-federated-cloud-creds: review  # already demo-scoped by dev 2026-04-29; OIDC federated cloud creds removed
   1-4-cockpit-shell-with-user-switcher-three-hardcoded-roles: review  # NEW (replaces 1-6 OIDC + 1-10 auth-protected shell); story file created 2026-04-29; impl 2026-04-29
   1-5-fresh-clone-to-running-demo-in-sixty-minutes: review              # NEW (relaxes NFR-RI5 from 30min to 60min); impl 2026-04-29
+  1-6-identity-provider-seam-and-fixtures-cleanup: ready-for-dev        # NEW 2026-05-06 (POC reframe — IdentityProvider seam + fixtures/users.json)
   epic-1-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
@@ -92,60 +94,60 @@ development_status:
   # ────────────────────────────────────────────────────────────────────
   # Epic 4 — Triage Mode & Live Mesh Visibility (9 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-4: backlog
-  4-1-risk-sla-continuity-ordering-for-queue-rail: backlog
-  4-2-keyboard-triage-loop: backlog
-  4-3-eight-illustrated-agent-face-svgs-with-state-machine: backlog
-  4-4-three-motion-flavors-as-framer-motion-utilities: backlog
-  4-5-agent-copilot-pane-with-live-activity-feed: backlog
-  4-6-sse-stream-endpoint-single-worker: backlog                        # no Redis pub/sub
-  4-7-mode-switcher-investigation-only: backlog
-  4-8-command-palette: backlog                                          # KEPT (was candidate cut #8)
-  4-9-status-pills-for-agent-states: backlog
+  epic-4: in-progress
+  4-1-risk-sla-continuity-ordering-for-queue-rail: review                # impl 2026-05-07
+  4-2-keyboard-triage-loop: review                                        # impl 2026-05-07
+  4-3-eight-illustrated-agent-face-svgs-with-state-machine: review        # impl 2026-05-07
+  4-4-three-motion-flavors-as-framer-motion-utilities: review             # impl 2026-05-07
+  4-5-agent-copilot-pane-with-live-activity-feed: review                  # impl 2026-05-07
+  4-6-sse-stream-endpoint-single-worker: review                           # impl 2026-05-07; no Redis pub/sub
+  4-7-mode-switcher-investigation-only: review                            # impl 2026-05-07
+  4-8-command-palette: review                                             # impl 2026-05-07; KEPT (was candidate cut #8)
+  4-9-status-pills-for-agent-states: review                               # impl 2026-05-07
   epic-4-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
   # Epic 5 — Entity & UBO Investigation (9 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-5: backlog
-  5-1-entity-verification-agent: backlog
-  5-2-mca-lookup-tool-mock: backlog
-  5-3-ubo-graph-agent-basic: backlog
-  5-4-ubo-canvas-component: backlog
-  5-5-drag-correct-interaction-with-learning-event-ledger-entry: backlog
-  5-6-risk-scoring-agent: backlog
-  5-7-risk-score-stacked-bar-with-hover-decomposition: backlog
-  5-8-auto-recalc-on-officer-correction: backlog                        # KEPT (was candidate cut #13)
-  5-9-ubo-and-risk-panels-on-case-canvas: backlog
+  epic-5: in-progress                                                      # transitioned 2026-05-08 (story files created)
+  5-1-entity-verification-agent: review                                   # impl 2026-05-08
+  5-2-mca-lookup-tool-mock: review                                        # impl 2026-05-08
+  5-3-ubo-graph-agent-basic: review                                       # impl 2026-05-08
+  5-4-ubo-canvas-component: review                                        # impl 2026-05-08
+  5-5-drag-correct-interaction-with-learning-event-ledger-entry: review     # impl 2026-05-08
+  5-6-risk-scoring-agent: review                                          # impl 2026-05-08
+  5-7-risk-score-stacked-bar-with-hover-decomposition: review             # impl 2026-05-08
+  5-8-auto-recalc-on-officer-correction: review                           # KEPT (was candidate cut #13); impl 2026-05-08
+  5-9-ubo-and-risk-panels-on-case-canvas: review                          # impl 2026-05-08
   epic-5-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
   # Epic 6 — Screening, Reasoning Traces & Cockpit Chat (8 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-6: backlog
-  6-1-screening-adapter-protocol-with-mock-impl: backlog                # mock-only, no second-impl conformance
-  6-2-screening-agent: backlog
-  6-3-screening-explainer-3-column-component: backlog
-  6-4-reasoning-trace-contract-4-section-schema-enforcement: backlog
-  6-5-get-reasoning-trace-endpoint: backlog
-  6-6-reasoning-trace-slide-out-component: backlog
-  6-7-cockpit-chat-agent-with-mesh-as-tools: backlog
-  6-8-cockpit-chat-conversational-ui-in-agent-copilot-pane: backlog
+  epic-6: in-progress                                                              # transitioned 2026-05-08 (story files created)
+  6-1-screening-adapter-protocol-with-mock-impl: review                            # impl 2026-05-08 (Amelia); mock-only, no second-impl conformance
+  6-2-screening-agent: review                                                      # impl 2026-05-08 (Amelia); registered to IBM Orchestrate cloud
+  6-3-screening-explainer-3-column-component: review                               # impl 2026-05-08 (Amelia); ScreeningPanel replaces Identity stub on Case Canvas
+  6-4-reasoning-trace-contract-4-section-schema-enforcement: review                # impl 2026-05-08 (Amelia); ContextVar wiring + Screening/EV opt-in
+  6-5-get-reasoning-trace-endpoint: review                                         # impl 2026-05-08 (Amelia); 9 router tests + 3 ledger tests
+  6-6-reasoning-trace-slide-out-component: review                                  # impl 2026-05-08 (Amelia); chat-follow-up state cut
+  6-7-cockpit-chat-agent-with-mesh-as-tools: review                                # impl 2026-05-08 (Amelia); registered to IBM Orchestrate cloud
+  6-8-cockpit-chat-conversational-ui-in-agent-copilot-pane: review                 # impl 2026-05-08 (Amelia); chat surface in agent copilot rail
   epic-6-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
   # Epic 7 — Decision Authoring (9 stories)
   # ────────────────────────────────────────────────────────────────────
-  epic-7: backlog
-  7-1-decision-zone-component-with-tiptap-editor: backlog
-  7-2-tonal-typographic-shift-on-decision-zone-focus: backlog
-  7-3-writing-agent-v1-rationale-draft: backlog
-  7-4-120-second-undo-timer-in-memory: backlog                          # in-memory, no Redis fail-closed; KEPT (was candidate cut #14)
-  7-5-undopill-with-countdown-ring-and-reason-capture-modal: backlog    # KEPT (was candidate cut #15)
-  7-6-seal-animation-on-commit: backlog
-  7-7-post-decision-endpoint-no-signature-verify: backlog               # simplified: no client-side WebCrypto sig verify
-  7-8-basic-evidence-shelf-read-only-for-context: backlog               # KEPT (was candidate cut #9)
-  7-9-decision-outcomes: backlog
+  epic-7: in-progress                                                                # transitioned 2026-05-08 (story files created)
+  7-1-decision-zone-component-with-tiptap-editor: review                             # impl 2026-05-08 (Amelia); manual demo step deferred until 7-3 / 7-7 land
+  7-2-tonal-typographic-shift-on-decision-zone-focus: review                         # impl 2026-05-08 (Amelia)
+  7-3-writing-agent-v1-rationale-draft: review                                       # impl 2026-05-08 (Amelia); 8th Orchestrate-registered agent
+  7-4-120-second-undo-timer-in-memory: review                                        # impl 2026-05-08 (Amelia); in-memory asyncio.Task; Redis cut
+  7-5-undopill-with-countdown-ring-and-reason-capture-modal: review                  # impl 2026-05-08 (Amelia); KEPT (was candidate cut #15)
+  7-6-seal-animation-on-commit: review                                               # impl 2026-05-08 (Amelia)
+  7-7-post-decision-endpoint-no-signature-verify: review                             # impl 2026-05-08 (Amelia); Ed25519 signing entirely cut
+  7-8-basic-evidence-shelf-read-only-for-context: review                             # impl 2026-05-08 (Amelia); KEPT (was candidate cut #9)
+  7-9-decision-outcomes: review                                                      # impl 2026-05-08 (Amelia); DecisionOutcome StrEnum
   epic-7-retrospective: optional
 
   # ────────────────────────────────────────────────────────────────────
@@ -184,3 +186,29 @@ development_status:
   # ────────────────────────────────────────────────────────────────────
   # All Epic 11 stories deferred indefinitely. Bank-buyer-scoped detail
   # preserved in Documentation/planning-artifacts/epics.md for revival.
+
+  # ────────────────────────────────────────────────────────────────────
+  # Epic 12 — Cockpit Visual Refresh (5 stories, added 2026-05-08)
+  # ────────────────────────────────────────────────────────────────────
+  # Tier-1 private-bank visual refresh — full-viewport workstation chrome,
+  # tabular density, type-led hierarchy, document-grade case canvas. No
+  # functional/backend/agent changes. Draft epic doc:
+  # Documentation/planning-artifacts/epic-12-cockpit-visual-refresh.md
+  # Sequencing notes (from epic-12-cockpit-visual-refresh.md risks + story-level deps):
+  #   - 12-1 is the foundation; ship first, alone. Token migration aliases keep
+  #     in-flight Epic 7 work compiling against old blues for one release window.
+  #   - 12-2 reflows cases.$caseId.tsx and collides with Epic 7 canvas-touching
+  #     stories (7-1 DecisionZone position, 7-2 typography shift, 7-8 evidence
+  #     shelf). Gate on those reaching `review` before merging 12-2.
+  #   - 12-3 and 12-4 depend on 12-2's section frames, so they sit behind the
+  #     same Epic 7 gate. 12-4's agent-strip portion is independent of 12-2 if
+  #     a future split is ever wanted.
+  #   - 12-5's decision drawer is the new home for Epic 7's DecisionZone.
+  #     Defer until Epic 7 is `done` to avoid re-homing 7-1 mid-flight.
+  epic-12: backlog
+  12-1-full-viewport-shell-tokens-chrome-mode-switcher: ready-for-dev    # foundation; full-viewport shell, design tokens, chrome, mode switcher
+  12-2-queue-rail-and-case-canvas-ia: ready-for-dev                      # blocked-by: 12-1 + Epic 7 canvas-touching stories (7-1, 7-2, 7-8) at `review`
+  12-3-documents-and-risk-panel-rebuild: ready-for-dev                   # blocked-by: 12-1 + 12-2 (panels live inside section frames from 12-2)
+  12-4-agent-activity-strip-and-ubo-refresh: ready-for-dev               # blocked-by: 12-1 + 12-2 (UBO rebuild lives in a 12-2 section frame; agent strip needs 12-1's agent-rail grid column)
+  12-5-decision-drawer-and-role-route-scaffolds: ready-for-dev           # blocked-by: 12-1 + 12-2 + epic-7 `done` (drawer is the new home for 7-1 DecisionZone)
+  epic-12-retrospective: optional

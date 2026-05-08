@@ -41,6 +41,106 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/agents/entity_verification/verify': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Run the Entity Verification agent against a CIN
+     * @description Calls the Entity Verification agent. Looks the CIN up against the mock MCA lookup tool, diffs case-side fields, returns typed mismatches. Every invocation writes one ledger entry.
+     */
+    post: operations['verify_entity_v1_agents_entity_verification_verify_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/agents/risk_scoring/score': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Run the Risk Scoring agent against a case
+     * @description Calls the Risk Scoring agent. Reads prior intake outputs (entity_verification, ubo_graph) and customer_metadata to compute a 5-component decomposed risk score. Read-only — does NOT persist or update Case.risk_band; the supervisor's intake fan-out owns that. Every invocation writes one ledger entry.
+     */
+    post: operations['score_risk_v1_agents_risk_scoring_score_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/agents/screening/run': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Run the Screening agent against a case's subjects
+     * @description Calls the Screening agent (Story 6.2) with the supplied case_id and pre-built subject list (entity / directors / UBOs). Returns the typed output including auto-dismissed hits. Every invocation writes one ledger entry.
+     */
+    post: operations['run_screening_v1_agents_screening_run_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/agents/ubo_graph/build': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Build the UBO graph for a case
+     * @description Calls the UBO Graph agent. Looks the CIN up via the mca_lookup tool, builds typed nodes + edges with the nominee heuristic, returns the graph. Every invocation writes one ledger entry.
+     */
+    post: operations['build_ubo_graph_v1_agents_ubo_graph_build_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/agents/writing/draft': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Draft the KYC decision rationale for a case
+     * @description Story 7.3 — invokes the Writing agent for a case in decision_ready (or pending_seal / committed for re-draft). Reads upstream agent outputs from the case's intake row, runs the LLM, and returns a typed DraftedRationale with Tiptap-renderable HTML and structured citations. Every invocation writes one ledger entry.
+     */
+    post: operations['draft_rationale_v1_agents_writing_draft_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/cases': {
     parameters: {
       query?: never;
@@ -48,7 +148,10 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** List cases (newest first) */
+    /**
+     * List cases (newest first)
+     * @description Returns every case currently in the cockpit, newest first. Each item carries the case id, current state (intake_scheduled, decision_ready, etc.), customer metadata, and assigned officer. Used by the case_supervisor agent to answer 'what cases are there?'.
+     */
     get: operations['list_cases_v1_cases_get'];
     put?: never;
     post?: never;
@@ -67,6 +170,206 @@ export interface paths {
     };
     /** Get a single case by ID */
     get: operations['get_case_v1_cases__case_id__get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/agent-actions/{action_id}/reasoning-trace': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the 4-section reasoning trace for an agent action
+     * @description Returns the typed `ReasoningTrace` from `AgentActionLedgerEntry.reasoning_trace` (Story 6.4). 200 with the typed body when present; 204 No Content when the agent ran but emitted no trace (e.g., Document Intelligence, UBO Graph); 404 when the case doesn't resolve, the action_id doesn't exist, the action belongs to a different case, or the entry is a SYSTEM / learning_event entry rather than an agent action.
+     */
+    get: operations['get_reasoning_trace_v1_cases__case_id__agent_actions__action_id__reasoning_trace_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/agent-mesh-state': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the per-agent mesh state for a case
+     * @description Story 4.5 — returns one row per MVP agent with state derived from the latest ledger entry: complete (ok) / blocked (error) / idle (no entries). Demo today does not surface working / needs_input from the ledger; those flow through SSE (Story 4.6).
+     */
+    get: operations['get_agent_mesh_state_v1_cases__case_id__agent_mesh_state_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/agents/{agent_slug}/run': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Re-run an intake agent for a case (Cockpit Chat tool)
+     * @description Story 6.7 — `re_run_agent` tool wired for cloud Orchestrate. Demo wires `screening` only; other slugs return 501. Writes one `cockpit_chat.tool_invoked` ledger entry per call.
+     */
+    post: operations['re_run_agent_v1_cases__case_id__agents__agent_slug__run_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/cockpit-chat/messages': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Send a Cockpit Chat message and stream the reply via SSE
+     * @description Story 6.8. Accepts a user chat message, kicks off a background task that streams the agent's reply token-by-token onto the case's existing SSE channel (`cockpit_chat.token` events), and returns 202 immediately with the message_id echo so the UI can correlate streamed tokens.
+     *
+     *     **Demo simplification**: the reply is generated by a local deterministic templater (cockpit_api.services.cockpit_chat_reply), not the cloud Orchestrate streaming chat API. This keeps the demo's typewriter + citation rendering reliably observable. The cockpit_chat agent is registered to cloud Orchestrate (Story 6.7) for the Path B reviewer surface; this route is the cockpit-side fallback that powers the in-cockpit chat panel.
+     */
+    post: operations['post_chat_message_v1_cases__case_id__cockpit_chat_messages_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/decisions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Commit a decision and start the 120-second undo window
+     * @description Story 7.7 — accepts ``{outcome, conditions, rationale_html}``, validates the case is in ``decision_ready``, writes one ``officer.decision_committed`` ledger entry, persists the ``Decision`` row, transitions the case to ``pending_seal``, schedules Story 7.4's 120-second seal timer, and publishes a ``decision.committed`` SSE event. Returns the new ``decision_id`` plus the seal-at timestamp. 409 when the case is in any other state; 404 when the case is missing.
+     */
+    post: operations['post_decision_v1_cases__case_id__decisions_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/decisions/active/timer': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the active decision-undo timer for a case
+     * @description Story 7.5 — returns the `DecisionTimerView` for the case's currently-pending decision. 200 with the typed body when a timer is active; 204 No Content when no timer (case not in pending_seal). Used by the cockpit-ui's UndoPill on initial mount to seed the countdown deterministically.
+     */
+    get: operations['get_active_decision_timer_v1_cases__case_id__decisions_active_timer_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/decisions/{decision_id}/undo': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Undo a pending-seal decision (within the 120s window)
+     * @description Story 7.5 — cancels Story 7.4's pending timer, reverts the case to decision_ready, and writes one `officer.decision_undone` ledger entry whose payload carries the officer-supplied reason. Fires `decision.undone` over SSE. Returns 409 when the decision has already sealed or the decision_id no longer matches the active timer.
+     */
+    post: operations['undo_decision_v1_cases__case_id__decisions__decision_id__undo_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/documents': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List the case's uploaded documents */
+    get: operations['list_case_documents_v1_cases__case_id__documents_get'];
+    put?: never;
+    /**
+     * Upload one or more PDF documents to a case
+     * @description Accepts multipart/form-data with one or more files in the `files` field. Each file must be a valid PDF (magic-byte check) ≤ 10 MB. On success, returns the per-file metadata + the case's updated document_refs list.
+     */
+    post: operations['upload_documents_v1_cases__case_id__documents_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/documents/{filename}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete an uploaded document and its document_refs entry */
+    delete: operations['delete_case_document_v1_cases__case_id__documents__filename__delete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/documents/{filename}/download': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download a stored document as application/pdf
+     * @description Story 4 hardening — returns the case's PDF straight from ``./fixtures/uploads/<case_id>/<filename>`` so the analyst can preview the file the agents have been reading. 404 if the file isn't on disk; 400 on a malformed filename.
+     */
+    get: operations['download_case_document_v1_cases__case_id__documents__filename__download_get'];
     put?: never;
     post?: never;
     delete?: never;
@@ -115,6 +418,146 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/v1/cases/{case_id}/intake/risk_scoring': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the Risk Scoring agent's intake output for a case
+     * @description Returns the typed RiskScore produced by Story 5.6's Risk Scoring agent for the given case. 404 if the case doesn't exist OR if intake hasn't run yet — distinguished by the `detail` field.
+     */
+    get: operations['get_risk_scoring_intake_v1_cases__case_id__intake_risk_scoring_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/intake/screening': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the Screening agent's intake output for a case
+     * @description Returns the typed ScreeningAgentOutput produced by Story 6.2's Screening agent for the given case. 404 if the case doesn't exist OR if intake hasn't run yet — distinguished by the `detail` field.
+     */
+    get: operations['get_screening_intake_v1_cases__case_id__intake_screening_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/intake/ubo_graph': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the UBO Graph agent's intake output for a case
+     * @description Returns the typed UBO graph produced by Story 5.3's UBO Graph agent for the given case. 404 if the case doesn't exist OR if intake hasn't run yet — distinguished by the `detail` field.
+     */
+    get: operations['get_ubo_graph_intake_v1_cases__case_id__intake_ubo_graph_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/intake/writing': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the Writing agent's drafted rationale for a case
+     * @description Story 7.3 — returns the typed `DraftedRationale` produced by the Writing agent for the given case. 404 if the case doesn't exist OR if the Writing agent hasn't run yet — distinguished by the `detail` field. Story 7.1's Decision Zone consumes this to pre-populate the Tiptap editor.
+     */
+    get: operations['get_writing_intake_v1_cases__case_id__intake_writing_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/ledger': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Read recent ledger entries for a case (Cockpit Chat tool)
+     * @description Story 6.7 — `query_ledger` tool. Returns the last `limit` entries for the case in chronological order (oldest first). Optional `actor_id` filters to a single agent (e.g., 'screening').
+     */
+    get: operations['get_case_ledger_v1_cases__case_id__ledger_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/stream': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Per-case Server-Sent Events stream
+     * @description Story 4.6 — yields agent.state_changed / case.state_changed / case.documents_changed events for the given case. Single-worker in-process fan-out (no Redis pub/sub in demo). Auth via ``?as=`` query param (EventSource cannot send custom headers) or the ``X-Cockpit-Demo-User`` header.
+     */
+    get: operations['stream_case_events_v1_cases__case_id__stream_get'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/v1/cases/{case_id}/ubo/learning-events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Officer correction to the UBO graph (drag-correct flow)
+     * @description Story 5.5 — drag-correct interaction. The officer flips a flagged edge (or removes one) and supplies an evidence note. The endpoint mutates the persisted UBO graph, appends a `learning_event` ledger entry, and fires `case.ubo_corrected` over SSE so the cockpit-ui refetches.
+     */
+    post: operations['create_ubo_learning_event_v1_cases__case_id__ubo_learning_events_post'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/v1/users/me': {
     parameters: {
       query?: never;
@@ -140,6 +583,127 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     /**
+     * ActorType
+     * @description Who originated the ledger entry. See architecture.md § P4.
+     * @enum {string}
+     */
+    ActorType: 'agent' | 'officer' | 'system';
+    /**
+     * AgentActionLedgerEntry
+     * @description Typed payload for ``agent.completed``/``agent.failed`` ledger entries.
+     */
+    AgentActionLedgerEntry: {
+      /** Agent Id */
+      agent_id: string;
+      /**
+       * Completed At
+       * Format: date-time
+       */
+      completed_at: string;
+      /** Duration Ms */
+      duration_ms: number;
+      error?: components['schemas']['ErrorInfo'] | null;
+      /** Input */
+      input: {
+        [key: string]: unknown;
+      };
+      /**
+       * Kind
+       * @default agent_action
+       * @constant
+       */
+      kind: 'agent_action';
+      /**
+       * Model Id
+       * @default stub
+       */
+      model_id: string;
+      /** Output */
+      output?: {
+        [key: string]: unknown;
+      } | null;
+      /** Prompt Hash */
+      prompt_hash?: string | null;
+      /** Prompt Template Id */
+      prompt_template_id?: string | null;
+      reasoning_trace?: components['schemas']['ReasoningTrace'] | null;
+      /**
+       * Started At
+       * Format: date-time
+       */
+      started_at: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'ok' | 'error';
+      /** Tool Calls */
+      tool_calls?: {
+        [key: string]: unknown;
+      }[];
+    };
+    /**
+     * AgentMeshAgentEntry
+     * @description Per-agent snapshot row.
+     */
+    AgentMeshAgentEntry: {
+      agent_slug: components['schemas']['AgentSlug'];
+      /** Last Action Id */
+      last_action_id?: string | null;
+      /** Last Activity At */
+      last_activity_at?: string | null;
+      state: components['schemas']['AgentMeshAgentState'];
+    };
+    /**
+     * AgentMeshAgentState
+     * @description Coarse-grained state surfaced to the cockpit pane.
+     * @enum {string}
+     */
+    AgentMeshAgentState: 'idle' | 'working' | 'complete' | 'blocked' | 'needs_input';
+    /**
+     * AgentMeshSnapshot
+     * @description Response model for ``GET /v1/cases/{case_id}/agent-mesh-state``.
+     */
+    AgentMeshSnapshot: {
+      /** Agents */
+      agents: components['schemas']['AgentMeshAgentEntry'][];
+      /** Case Id */
+      case_id: string;
+    };
+    /**
+     * AgentRerunResponse
+     * @description Story 6.7 / AC #4 response shape for `POST /cases/.../agents/.../run`.
+     */
+    AgentRerunResponse: {
+      /** Agent Action Id */
+      agent_action_id: string;
+      /** Agent Slug */
+      agent_slug: string;
+      /** Case Id */
+      case_id: string;
+      /** Status */
+      status: string;
+    };
+    /**
+     * AgentSlug
+     * @description The eight MVP agents. Slug values mirror the registry directory names.
+     * @enum {string}
+     */
+    AgentSlug:
+      | 'case-supervisor'
+      | 'document-intelligence'
+      | 'entity-verification'
+      | 'ubo-graph'
+      | 'screening'
+      | 'risk-scoring'
+      | 'writing'
+      | 'cockpit-chat';
+    /** Body_upload_documents_v1_cases__case_id__documents_post */
+    Body_upload_documents_v1_cases__case_id__documents_post: {
+      /** Files */
+      files: string[];
+    };
+    /**
      * CaseEnvelope
      * @description ``Case`` plus the API-shape-only ``_links`` placeholder.
      */
@@ -160,6 +724,7 @@ export interface components {
       customer_metadata: components['schemas']['CustomerMetadata'];
       /** Id */
       id: string;
+      latest_decision?: components['schemas']['CaseLatestDecision'] | null;
       /** Risk Band */
       risk_band?: ('low' | 'medium_low' | 'medium_high' | 'high') | null;
       state: components['schemas']['CaseState'];
@@ -199,6 +764,29 @@ export interface components {
       status: 'completed' | 'blocked';
     };
     /**
+     * CaseLatestDecision
+     * @description Per-case decision summary surfaced on ``GET /v1/cases/{case_id}``.
+     *
+     *     Story 7.6 / AC #5. ``sealed_ledger_entry_id`` is ``None`` while the
+     *     decision is still in the 120-second undo window (state
+     *     ``pending_seal``); populated once the seal-time ledger entry is
+     *     written. Story 7.7 owns the ``decisions`` table that backs this; the
+     *     envelope addition lands here so the cockpit-ui's
+     *     ``SealedIndicator`` can read the seal id without a second round-
+     *     trip.
+     */
+    CaseLatestDecision: {
+      /** Decision Id */
+      decision_id: string;
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: 'approve' | 'decline' | 'approve_with_conditions' | 'escalate_to_edd';
+      /** Sealed Ledger Entry Id */
+      sealed_ledger_entry_id?: string | null;
+    };
+    /**
      * CaseListResponse
      * @description Pagination envelope per ``architecture.md#Format Patterns``.
      */
@@ -218,13 +806,135 @@ export interface components {
      * @description Lifecycle states. See ``ALLOWED_TRANSITIONS`` for the edge set.
      * @enum {string}
      */
-    CaseState: 'intake_scheduled' | 'decision_ready' | 'committed' | 'escalated' | 'closed';
+    CaseState:
+      | 'intake_scheduled'
+      | 'decision_ready'
+      | 'pending_seal'
+      | 'committed'
+      | 'escalated'
+      | 'closed';
+    /**
+     * CitedClaim
+     * @description One factual claim in the drafted rationale, paired with the
+     *     ledger entry that backs it. The LLM emits these in structured JSON;
+     *     the agent assembles them into HTML around each claim's text.
+     */
+    CitedClaim: {
+      /** Evidence Ledger Id */
+      evidence_ledger_id: string;
+      /** Text */
+      text: string;
+    };
+    /**
+     * CockpitChatMessageAccepted
+     * @description Story 6.8 / AC #1 — 202 response shape.
+     */
+    CockpitChatMessageAccepted: {
+      /** Case Id */
+      case_id: string;
+      /** Message Id */
+      message_id: string;
+      /** Status */
+      status: string;
+    };
+    /**
+     * CockpitChatMessageRequest
+     * @description Story 6.8 / AC #1 — POST body for the cockpit-chat message route.
+     */
+    CockpitChatMessageRequest: {
+      /** Message */
+      message: string;
+      /** Message Id */
+      message_id: string;
+    };
+    /**
+     * CockpitChatToolLedgerPayload
+     * @description Typed ``LedgerEntry.payload`` arm for cockpit_chat tool invocations.
+     *
+     *     Story 6.7. Every tool call from the Cockpit Chat agent —
+     *     `get_case`, `get_reasoning_trace`, `re_run_agent`, `query_ledger` —
+     *     writes one of these. Architecture § P4 (tool calls ledgered) adapted
+     *     for the demo's chat agent. Tool routes use the
+     *     ``ledger_chat_tool_call`` async context manager (cockpit-api
+     *     services/cockpit_chat_ledger.py) to record entries.
+     */
+    CockpitChatToolLedgerPayload: {
+      /** Duration Ms */
+      duration_ms: number;
+      error?: components['schemas']['ErrorInfo'] | null;
+      /**
+       * Kind
+       * @default cockpit_chat_tool
+       * @constant
+       */
+      kind: 'cockpit_chat_tool';
+      /** Request Args */
+      request_args?: {
+        [key: string]: unknown;
+      };
+      /** Result Summary */
+      result_summary: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: 'ok' | 'error';
+      /**
+       * Tool Name
+       * @enum {string}
+       */
+      tool_name: 'get_case' | 'get_reasoning_trace' | 're_run_agent' | 'query_ledger';
+    };
+    /**
+     * CommitDecisionRequest
+     * @description POST body for ``/v1/cases/{case_id}/decisions``.
+     */
+    CommitDecisionRequest: {
+      /** Conditions */
+      conditions?: string[];
+      outcome: components['schemas']['DecisionOutcome'];
+      /** Rationale Html */
+      rationale_html: string;
+    };
+    /**
+     * CommitDecisionResponse
+     * @description 201 response shape for ``POST /v1/cases/{case_id}/decisions``.
+     */
+    CommitDecisionResponse: {
+      /** Case Id */
+      case_id: string;
+      case_state: components['schemas']['CaseState'];
+      /** Decision Id */
+      decision_id: string;
+      /** Ledger Entry Id */
+      ledger_entry_id: string;
+      /**
+       * Seal At
+       * Format: date-time
+       */
+      seal_at: string;
+    };
     /**
      * ConfidenceBand
      * @description Four-tier confidence banding. Wire format is snake_case.
      * @enum {string}
      */
     ConfidenceBand: 'low' | 'medium_low' | 'medium_high' | 'high';
+    /**
+     * ConfidenceWithRationale
+     * @description Confidence float with an agent-emitted rationale string.
+     *
+     *     Used inside `ReasoningTrace.confidence_self_rating`. Re-usable by
+     *     future agents needing a richer "why this confidence?" signal than
+     *     `ProvenancedField[T]` provides.
+     */
+    ConfidenceWithRationale: {
+      band: components['schemas']['ConfidenceBand'];
+      /** Rationale */
+      rationale: string;
+      /** Value */
+      value: number;
+    };
     /**
      * CustomerMetadata
      * @description Customer-side facts attached to a case.
@@ -244,6 +954,39 @@ export interface components {
       extra?: {
         [key: string]: unknown;
       };
+    };
+    /**
+     * DecisionOutcome
+     * @description The four mutually-exclusive decision outcomes — Story 7.9 / AC #1.
+     *
+     *     Story 7.7 declared this as a ``Literal``; promoting to ``StrEnum``
+     *     keeps the wire format identical (Pydantic v2 serializes by value)
+     *     and lets Python callers reach for ``DecisionOutcome.APPROVE``
+     *     instead of stringly-typed literals.
+     * @enum {string}
+     */
+    DecisionOutcome: 'approve' | 'decline' | 'approve_with_conditions' | 'escalate_to_edd';
+    /**
+     * DecisionSealedPayload
+     * @description Typed ``LedgerEntry.payload`` arm for the SYSTEM-emitted seal —
+     *     Story 7.7. Written by ``decision_service.seal_decision`` when
+     *     Story 7.4's timer elapses; ``actor_type`` is ``SYSTEM`` and
+     *     ``actor_id`` is ``platform``. Distinct from agent / officer entries.
+     */
+    DecisionSealedPayload: {
+      /** Decision Id */
+      decision_id: string;
+      /**
+       * Kind
+       * @default decision_sealed
+       * @constant
+       */
+      kind: 'decision_sealed';
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: 'approve' | 'decline' | 'approve_with_conditions' | 'escalate_to_edd';
     };
     /** DocumentIntelligenceInput */
     DocumentIntelligenceInput: {
@@ -267,6 +1010,62 @@ export interface components {
       /** Extracted Fields */
       extracted_fields?: components['schemas']['ExtractedField'][];
     };
+    /**
+     * DraftedRationale
+     * @description The Writing agent's output — a structured rationale with
+     *     citations.
+     *
+     *     ``html`` is the renderable form for Tiptap (citation tokens already
+     *     wrapped in ``<span data-ledger-id="…">…</span>``). ``paragraphs``
+     *     and ``cited_claims`` carry the structured signal for downstream
+     *     analytics — they are persisted on the intake row but not surfaced
+     *     in the demo UI.
+     */
+    DraftedRationale: {
+      /** Case Id */
+      case_id: string;
+      /** Cited Claims */
+      cited_claims?: components['schemas']['CitedClaim'][];
+      /** Html */
+      html: string;
+      /** Model Id */
+      model_id: string;
+      /** Paragraphs */
+      paragraphs: string[];
+      /**
+       * Prompt Template Id
+       * @default rationale_draft_v1
+       * @constant
+       */
+      prompt_template_id: 'rationale_draft_v1';
+    };
+    /** EntityVerificationInput */
+    EntityVerificationInput: {
+      /** Case Id */
+      case_id: string;
+      /** Cin */
+      cin: string;
+    };
+    /** EntityVerificationResult */
+    EntityVerificationResult: {
+      /** Case Id */
+      case_id: string;
+      /** Cin */
+      cin: string;
+      mca_status: components['schemas']['ProvenancedField_Literal__active____struck_off____dormant___'];
+      /** Mismatches */
+      mismatches?: components['schemas']['FieldMismatch'][];
+    };
+    /**
+     * ErrorInfo
+     * @description Error metadata recorded on failure-path agent actions.
+     */
+    ErrorInfo: {
+      /** Message */
+      message: string;
+      /** Type */
+      type: string;
+    };
     /** ExtractedField */
     ExtractedField: {
       /** Document Ref */
@@ -275,10 +1074,203 @@ export interface components {
       field_name: string;
       value: components['schemas']['ProvenancedField_Union_str__int__float__bool__NoneType__'];
     };
+    /** FieldMismatch */
+    FieldMismatch: {
+      /** Case Value */
+      case_value?: string | null;
+      /** Field Name */
+      field_name: string;
+      /** Mca Value */
+      mca_value?: string | null;
+      /** Notes */
+      notes?: string | null;
+      /**
+       * Severity
+       * @default warning
+       * @enum {string}
+       */
+      severity: 'info' | 'warning' | 'critical';
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
       detail?: components['schemas']['ValidationError'][];
+    };
+    /**
+     * LearningEventInput
+     * @description POST body for ``/v1/cases/{case_id}/ubo/learning-events``.
+     */
+    LearningEventInput: {
+      /**
+       * Correction Tag
+       * @enum {string}
+       */
+      correction_tag: 'real_ubo' | 'nominee' | 'director' | 'removed';
+      /**
+       * Edge Kind
+       * @enum {string}
+       */
+      edge_kind: 'owns' | 'director' | 'beneficial';
+      /** Evidence Note */
+      evidence_note: string;
+      /** From Id */
+      from_id: string;
+      /** New To Id */
+      new_to_id: string;
+      /**
+       * Opt In For Retraining
+       * @default false
+       */
+      opt_in_for_retraining: boolean;
+      /** Original To Id */
+      original_to_id: string;
+    };
+    /**
+     * LearningEventLedgerPayload
+     * @description Typed ``LedgerEntry.payload`` arm for officer-originated UBO corrections.
+     *
+     *     Story 5.5. Lives here (not in ``contracts.learning_event``) to avoid a
+     *     circular import between ledger ↔ ubo ↔ provenance ↔ ledger. Node-id
+     *     fields are typed as plain ``str`` here; pattern validation happened
+     *     upstream at ``LearningEventInput``.
+     */
+    LearningEventLedgerPayload: {
+      /**
+       * Correction Tag
+       * @enum {string}
+       */
+      correction_tag: 'real_ubo' | 'nominee' | 'director' | 'removed';
+      /**
+       * Edge Kind
+       * @enum {string}
+       */
+      edge_kind: 'owns' | 'director' | 'beneficial';
+      /** Evidence Note */
+      evidence_note: string;
+      /** From Id */
+      from_id: string;
+      /**
+       * Kind
+       * @default learning_event
+       * @constant
+       */
+      kind: 'learning_event';
+      /** New To Id */
+      new_to_id: string;
+      /** Opt In For Retraining */
+      opt_in_for_retraining: boolean;
+      /** Original To Id */
+      original_to_id: string;
+    };
+    /**
+     * LearningEventResponse
+     * @description Server-side response after persisting + writing the ledger entry.
+     */
+    LearningEventResponse: {
+      /** Case Id */
+      case_id: string;
+      /** Ledger Entry Id */
+      ledger_entry_id: string;
+      /**
+       * Recorded At
+       * Format: date-time
+       */
+      recorded_at: string;
+    };
+    /**
+     * LedgerEntry
+     * @description One append-only ledger event.
+     *
+     *     The writer overwrites ``id`` and ``recorded_at`` server-side at
+     *     ``append`` time, so caller-supplied values are ignored. Pass any
+     *     pattern-valid ID and any tz-aware ``datetime`` — they will be replaced.
+     */
+    LedgerEntry: {
+      /** Action */
+      action: string;
+      /** Actor Id */
+      actor_id: string;
+      actor_type: components['schemas']['ActorType'];
+      /** Case Id */
+      case_id?: string | null;
+      /** Id */
+      id: string;
+      /** Payload */
+      payload?:
+        | components['schemas']['AgentActionLedgerEntry']
+        | components['schemas']['CockpitChatToolLedgerPayload']
+        | components['schemas']['LearningEventLedgerPayload']
+        | components['schemas']['OfficerDecisionUndonePayload']
+        | components['schemas']['OfficerDecisionCommittedPayload']
+        | components['schemas']['DecisionSealedPayload']
+        | {
+            [key: string]: unknown;
+          };
+      /**
+       * Recorded At
+       * Format: date-time
+       */
+      recorded_at: string;
+    };
+    /**
+     * ListResponse
+     * @description Reply to GET /documents.
+     */
+    ListResponse: {
+      /** Case Id */
+      case_id: string;
+      /** Items */
+      items: components['schemas']['StoredDocumentResponse'][];
+    };
+    /**
+     * OfficerDecisionCommittedPayload
+     * @description Typed ``LedgerEntry.payload`` arm for officer commits — Story 7.7.
+     *
+     *     No Ed25519 signature: the bank-buyer scope's signing primitive is
+     *     cut from the demo per the 2026-04-29 re-scope. The audit anchor is
+     *     the ``rationale_hash`` (SHA-256 hex of the raw ``rationale_html``
+     *     UTF-8 bytes); changing the rationale post-hoc would invalidate the
+     *     hash without rewriting the ledger entry.
+     */
+    OfficerDecisionCommittedPayload: {
+      /** Conditions */
+      conditions?: string[];
+      /** Decision Id */
+      decision_id: string;
+      /**
+       * Kind
+       * @default officer_decision_committed
+       * @constant
+       */
+      kind: 'officer_decision_committed';
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome: 'approve' | 'decline' | 'approve_with_conditions' | 'escalate_to_edd';
+      /** Rationale Hash */
+      rationale_hash: string;
+    };
+    /**
+     * OfficerDecisionUndonePayload
+     * @description Typed ``LedgerEntry.payload`` arm for officer undo events.
+     *
+     *     Story 7.5. Officer hits Undo on a pending_seal decision; we cancel
+     *     Story 7.4's timer, revert the case to ``decision_ready``, and write
+     *     one of these. The reason is required (≥ 40 chars) so the audit
+     *     record carries the why; NFR-T6 carries through demo scope.
+     */
+    OfficerDecisionUndonePayload: {
+      /** Decision Id */
+      decision_id: string;
+      /**
+       * Kind
+       * @default officer_decision_undone
+       * @constant
+       */
+      kind: 'officer_decision_undone';
+      /** Reason */
+      reason: string;
     };
     /**
      * Provenance
@@ -300,11 +1292,81 @@ export interface components {
       /** Source System */
       source_system: string;
     };
+    /** ProvenancedField[Literal['active', 'struck_off', 'dormant']] */
+    ProvenancedField_Literal__active____struck_off____dormant___: {
+      provenance: components['schemas']['Provenance'];
+      /**
+       * Value
+       * @enum {string}
+       */
+      value: 'active' | 'struck_off' | 'dormant';
+    };
     /** ProvenancedField[Union[str, int, float, bool, NoneType]] */
     ProvenancedField_Union_str__int__float__bool__NoneType__: {
       provenance: components['schemas']['Provenance'];
       /** Value */
       value: string | number | boolean | null;
+    };
+    /** ProvenancedField[float] */
+    ProvenancedField_float_: {
+      provenance: components['schemas']['Provenance'];
+      /** Value */
+      value: number;
+    };
+    /**
+     * ReasoningTrace
+     * @description The 4-section, non-skippable reasoning trace.
+     *
+     *     Min-lengths are deliberate: nothing below ~12 chars is meaningful in
+     *     any of these slots; this is the contract enforcement that Innovation
+     *     #2 demands. The 600-char ceiling on counterfactual is shorter than
+     *     what_hit because the counterfactual is meant to be a sharp single
+     *     sentence, not a paragraph.
+     */
+    ReasoningTrace: {
+      confidence_self_rating: components['schemas']['ConfidenceWithRationale'];
+      /** Counterfactual */
+      counterfactual: string;
+      /** What Hit */
+      what_hit: string;
+      /** What Searched */
+      what_searched: string;
+    };
+    /** RiskComponent */
+    RiskComponent: {
+      /** Contribution */
+      contribution: number;
+      /**
+       * Name
+       * @enum {string}
+       */
+      name: 'country' | 'entity_type' | 'ownership_clarity' | 'screening' | 'adverse_media';
+      /** Rationale */
+      rationale: string;
+      /** Value */
+      value: number;
+      /** Weight */
+      weight: number;
+    };
+    /** RiskScore */
+    RiskScore: {
+      /**
+       * Band
+       * @enum {string}
+       */
+      band: 'low' | 'medium' | 'high';
+      /** Case Id */
+      case_id: string;
+      /** Components */
+      components?: components['schemas']['RiskComponent'][];
+      score_provenance: components['schemas']['ProvenancedField_float_'];
+      /** Total */
+      total: number;
+    };
+    /** RiskScoringInput */
+    RiskScoringInput: {
+      /** Case Id */
+      case_id: string;
     };
     /**
      * Role
@@ -312,6 +1374,222 @@ export interface components {
      * @enum {string}
      */
     Role: 'analyst' | 'team_lead' | 'regulator';
+    /**
+     * ScreeningAgentInput
+     * @description Input shape for the Story 6.2 Screening agent.
+     *
+     *     Subjects are built by the supervisor from upstream agent outputs
+     *     (Entity Verification + UBO Graph) — the agent receives them ready-built.
+     */
+    ScreeningAgentInput: {
+      /** Case Id */
+      case_id: string;
+      /** Subjects */
+      subjects: components['schemas']['ScreeningSubject'][];
+    };
+    /**
+     * ScreeningAgentOutput
+     * @description Output of the Screening agent.
+     *
+     *     ``hits`` includes auto-dismissed entries — the UI shows the dismissed
+     *     ones in a collapsed group so officers can re-include if needed.
+     */
+    ScreeningAgentOutput: {
+      /** Case Id */
+      case_id: string;
+      /** Hits */
+      hits?: components['schemas']['ScreeningHit'][];
+      /** Subjects Screened */
+      subjects_screened: number;
+    };
+    /**
+     * ScreeningHit
+     * @description One match from one subject against the vendor's index.
+     */
+    ScreeningHit: {
+      /** Categories */
+      categories: ('sanctions' | 'pep' | 'adverse_media' | 'law_enforcement' | 'watchlist')[];
+      /** Date Of Birth */
+      date_of_birth?: string | null;
+      /** Dismissal Rationale */
+      dismissal_rationale?: string | null;
+      /**
+       * Disposition
+       * @default open
+       * @enum {string}
+       */
+      disposition: 'open' | 'dismissed_by_agent' | 'confirmed_by_officer' | 'dismissed_by_officer';
+      /** Hit Id */
+      hit_id: string;
+      /** Identifiers */
+      identifiers?: {
+        [key: string]: string;
+      };
+      /** Matched Name */
+      matched_name: string;
+      name_match_score: components['schemas']['ProvenancedField_float_'];
+      /** Source Lists */
+      source_lists?: string[];
+      /** Subject Id */
+      subject_id: string;
+    };
+    /**
+     * ScreeningSubject
+     * @description A single name+DOB+identifier triple to screen.
+     */
+    ScreeningSubject: {
+      /** Date Of Birth */
+      date_of_birth?: string | null;
+      /** Full Name */
+      full_name: string;
+      /** Identifiers */
+      identifiers?: {
+        [key: string]: string;
+      };
+      /** Subject Id */
+      subject_id: string;
+      /**
+       * Subject Kind
+       * @enum {string}
+       */
+      subject_kind: 'entity' | 'director' | 'ubo';
+    };
+    /**
+     * StoredDocumentResponse
+     * @description One document on disk, surfaced through the API.
+     */
+    StoredDocumentResponse: {
+      /** Filename */
+      filename: string;
+      /** Size Bytes */
+      size_bytes: number;
+      /**
+       * Uploaded At
+       * Format: date-time
+       */
+      uploaded_at: string;
+    };
+    /** UBOEdge */
+    UBOEdge: {
+      confidence: components['schemas']['ProvenancedField_float_'];
+      /** Designation */
+      designation?:
+        | ('director' | 'managing_director' | 'additional_director' | 'nominee_director')
+        | null;
+      /** From Id */
+      from_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'owns' | 'director' | 'beneficial';
+      /**
+       * Nominee Flag
+       * @default clear
+       * @enum {string}
+       */
+      nominee_flag: 'clear' | 'nominee_suspected' | 'officer_corrected';
+      /** Ownership Pct */
+      ownership_pct?: number | null;
+      /** Rationale */
+      rationale?: string | null;
+      /** To Id */
+      to_id: string;
+    };
+    /** UBOEntityNode */
+    UBOEntityNode: {
+      /** Cin */
+      cin?: string | null;
+      /** Country */
+      country?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Is Corporate
+       * @default true
+       */
+      is_corporate: boolean;
+      /**
+       * Kind
+       * @default entity
+       * @constant
+       */
+      kind: 'entity';
+      /** Name */
+      name: string;
+    };
+    /** UBOGraph */
+    UBOGraph: {
+      /** Case Id */
+      case_id: string;
+      /** Edges */
+      edges?: components['schemas']['UBOEdge'][];
+      /** Nodes */
+      nodes?: (components['schemas']['UBOPersonNode'] | components['schemas']['UBOEntityNode'])[];
+      /** Root Entity Id */
+      root_entity_id: string;
+    };
+    /** UBOGraphInput */
+    UBOGraphInput: {
+      /** Case Id */
+      case_id: string;
+      /** Cin */
+      cin: string;
+    };
+    /** UBOPersonNode */
+    UBOPersonNode: {
+      /** Country */
+      country?: string | null;
+      /** Din */
+      din?: string | null;
+      /** Id */
+      id: string;
+      /**
+       * Kind
+       * @default person
+       * @constant
+       */
+      kind: 'person';
+      /** Name */
+      name: string;
+    };
+    /**
+     * UndoDecisionRequest
+     * @description Request body for `POST /v1/cases/{case_id}/decisions/{decision_id}/undo`.
+     *
+     *     Story 7.5 — `reason` is the audit-trail anchor; ≥40 chars per
+     *     NFR-T6.
+     */
+    UndoDecisionRequest: {
+      /** Reason */
+      reason: string;
+    };
+    /**
+     * UndoDecisionResponse
+     * @description 200 response shape for the undo endpoint — Story 7.5.
+     */
+    UndoDecisionResponse: {
+      /** Case Id */
+      case_id: string;
+      /** Case State */
+      case_state: string;
+      /** Decision Id */
+      decision_id: string;
+      /** Ledger Entry Id */
+      ledger_entry_id: string;
+    };
+    /**
+     * UploadResponse
+     * @description Reply to a successful POST.
+     */
+    UploadResponse: {
+      /** Case Id */
+      case_id: string;
+      /** Document Refs */
+      document_refs: string[];
+      /** Uploaded */
+      uploaded: components['schemas']['StoredDocumentResponse'][];
+    };
     /**
      * User
      * @description A demo user. Identity-only — no auth, no permissions, no tenant.
@@ -337,6 +1615,16 @@ export interface components {
       msg: string;
       /** Error Type */
       type: string;
+    };
+    /**
+     * WritingAgentInput
+     * @description Tool-facing input for the Writing agent. Upstream typed outputs
+     *     are NOT in the input — the supervisor reads them off the case's
+     *     intake row at call time, mirroring Story 6.2's screening agent.
+     */
+    WritingAgentInput: {
+      /** Case Id */
+      case_id: string;
     };
   };
   responses: never;
@@ -389,6 +1677,171 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['DocumentIntelligenceOutput'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  verify_entity_v1_agents_entity_verification_verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EntityVerificationInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['EntityVerificationResult'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  score_risk_v1_agents_risk_scoring_score_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['RiskScoringInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RiskScore'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  run_screening_v1_agents_screening_run_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ScreeningAgentInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScreeningAgentOutput'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  build_ubo_graph_v1_agents_ubo_graph_build_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UBOGraphInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UBOGraph'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  draft_rationale_v1_agents_writing_draft_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WritingAgentInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DraftedRationale'];
         };
       };
       /** @description Validation Error */
@@ -467,12 +1920,423 @@ export interface operations {
       };
     };
   };
-  run_case_intake_v1_cases__case_id__intake_post: {
+  get_reasoning_trace_v1_cases__case_id__agent_actions__action_id__reasoning_trace_get: {
     parameters: {
       query?: never;
       header?: {
         'X-Cockpit-Demo-User'?: string | null;
       };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+        /** @description Agent action ID (`led_<ULID>` — same shape as the ledger entry ID) */
+        action_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ReasoningTrace'];
+        };
+      };
+      /** @description Agent action exists but emitted no reasoning trace. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Case or agent action not found. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_agent_mesh_state_v1_cases__case_id__agent_mesh_state_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentMeshSnapshot'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  re_run_agent_v1_cases__case_id__agents__agent_slug__run_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+        agent_slug: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['AgentRerunResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  post_chat_message_v1_cases__case_id__cockpit_chat_messages_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CockpitChatMessageRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CockpitChatMessageAccepted'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  post_decision_v1_cases__case_id__decisions_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CommitDecisionRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['CommitDecisionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_active_decision_timer_v1_cases__case_id__decisions_active_timer_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Active timer present. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': unknown;
+        };
+      };
+      /** @description No active timer for the given case. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  undo_decision_v1_cases__case_id__decisions__decision_id__undo_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+        decision_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UndoDecisionRequest'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UndoDecisionResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  list_case_documents_v1_cases__case_id__documents_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ListResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  upload_documents_v1_cases__case_id__documents_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'multipart/form-data': components['schemas']['Body_upload_documents_v1_cases__case_id__documents_post'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UploadResponse'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  delete_case_document_v1_cases__case_id__documents__filename__delete: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+        filename: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  download_case_document_v1_cases__case_id__documents__filename__download_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+        filename: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  run_case_intake_v1_cases__case_id__intake_post: {
+    parameters: {
+      query?: never;
+      header?: never;
       path: {
         /** @description Case ID (`case_<ULID>`) */
         case_id: string;
@@ -522,6 +2386,252 @@ export interface operations {
         };
         content: {
           'application/json': components['schemas']['DocumentIntelligenceOutput'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_risk_scoring_intake_v1_cases__case_id__intake_risk_scoring_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RiskScore'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_screening_intake_v1_cases__case_id__intake_screening_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['ScreeningAgentOutput'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_ubo_graph_intake_v1_cases__case_id__intake_ubo_graph_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['UBOGraph'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_writing_intake_v1_cases__case_id__intake_writing_get: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['DraftedRationale'];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  get_case_ledger_v1_cases__case_id__ledger_get: {
+    parameters: {
+      query?: {
+        actor_id?: string | null;
+        limit?: number;
+      };
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LedgerEntry'][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  stream_case_events_v1_cases__case_id__stream_get: {
+    parameters: {
+      query?: {
+        as?: string | null;
+      };
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HTTPValidationError'];
+        };
+      };
+    };
+  };
+  create_ubo_learning_event_v1_cases__case_id__ubo_learning_events_post: {
+    parameters: {
+      query?: never;
+      header?: {
+        'X-Cockpit-Demo-User'?: string | null;
+      };
+      path: {
+        /** @description Case ID (`case_<ULID>`) */
+        case_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['LearningEventInput'];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['LearningEventResponse'];
         };
       };
       /** @description Validation Error */

@@ -2,8 +2,11 @@
 //
 // Renders Document Intelligence agent extractions grouped by document_ref.
 // Every value row carries a ProvenanceIndicator (NFR-T4 100% coverage —
-// asserted in DocumentsPanel.test.tsx).
+// asserted in DocumentsPanel.test.tsx). Story 4 hardening: each document
+// header is a link to GET /v1/cases/{case_id}/documents/{filename}/download
+// so the analyst can preview the source PDF the agents have been reading.
 
+import { Download } from 'lucide-react';
 import type { components } from '@/api-types';
 import { humanizeFieldName } from '@/lib/humanize';
 import { ProvenanceIndicator } from '@/components/cockpit/ProvenanceIndicator';
@@ -16,6 +19,15 @@ export interface DocumentsPanelProps {
   isPending?: boolean;
   isError?: boolean;
   onProvenanceClick?: (extractedField: ExtractedField) => void;
+  /** Story 4 hardening — case id used to build the download URL per doc. */
+  caseId?: string;
+  /**
+   * Story 4 hardening — case-scoped document filenames already on disk
+   * (from ``customer_metadata.extra.document_refs``). Rendered in the
+   * empty state so the analyst can preview PDFs before clicking
+   * "Process now".
+   */
+  pendingDocumentRefs?: readonly string[];
 }
 
 export function DocumentsPanel({
@@ -23,6 +35,8 @@ export function DocumentsPanel({
   isPending,
   isError,
   onProvenanceClick,
+  caseId,
+  pendingDocumentRefs,
 }: DocumentsPanelProps): JSX.Element {
   // Loading state — only when there's no data yet.
   if (isPending && !output) {
@@ -58,15 +72,39 @@ export function DocumentsPanel({
 
   // Empty state — `null` (intake not run) or empty fields list.
   if (!output || output.extracted_fields.length === 0) {
+    const hasPending = (pendingDocumentRefs?.length ?? 0) > 0;
     return (
       <div className="rounded-md border border-zinc-200 bg-white px-4 py-3.5">
-        <Header subtitle="No intake data yet" />
+        <Header
+          subtitle={
+            hasPending
+              ? `${pendingDocumentRefs!.length} on file — not processed yet`
+              : 'No intake data yet'
+          }
+        />
         <hr className="my-3 border-zinc-200" />
-        <p className="text-sm text-zinc-500">
-          {output === null || output === undefined
-            ? 'Intake has not yet run for this case. Run intake via POST /v1/cases/{id}/intake or wait for the supervisor.'
-            : 'No fields were extracted from this case. Documents may not match a known taxonomy.'}
-        </p>
+        {hasPending ? (
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-500">
+              Documents are on file but Document Intelligence hasn&apos;t run yet. Click{' '}
+              <strong>Process now</strong> to extract fields, or click a filename to preview the
+              PDF.
+            </p>
+            <ul className="space-y-1.5">
+              {pendingDocumentRefs!.map((docRef) => (
+                <li key={docRef}>
+                  <DocumentHeader docRef={docRef} caseId={caseId} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-500">
+            {output === null || output === undefined
+              ? 'Intake has not yet run for this case. Run intake via POST /v1/cases/{id}/intake or wait for the supervisor.'
+              : 'No fields were extracted from this case. Documents may not match a known taxonomy.'}
+          </p>
+        )}
       </div>
     );
   }
@@ -87,7 +125,7 @@ export function DocumentsPanel({
       <div className="space-y-5">
         {Array.from(grouped.entries()).map(([docRef, fields]) => (
           <section key={docRef}>
-            <h4 className="text-xs font-medium text-zinc-700 font-mono mb-2">{docRef}</h4>
+            <DocumentHeader docRef={docRef} caseId={caseId} />
             <div className="space-y-1.5">
               {fields.map((field) => (
                 <DocumentField
@@ -101,6 +139,29 @@ export function DocumentsPanel({
         ))}
       </div>
     </div>
+  );
+}
+
+function DocumentHeader({ docRef, caseId }: { docRef: string; caseId?: string }): JSX.Element {
+  if (!caseId) {
+    // Backward-compat: no caseId means we render the filename plain (used
+    // by the panel's older test fixtures and any future read-only views).
+    return <h4 className="text-xs font-medium text-zinc-700 font-mono mb-2">{docRef}</h4>;
+  }
+  const href = `/v1/cases/${encodeURIComponent(caseId)}/documents/${encodeURIComponent(docRef)}/download`;
+  return (
+    <h4 className="text-xs font-medium text-zinc-700 font-mono mb-2">
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 hover:text-zinc-900 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded"
+        title={`Open ${docRef} in a new tab`}
+      >
+        {docRef}
+        <Download className="h-3 w-3 text-zinc-400" aria-hidden="true" />
+      </a>
+    </h4>
   );
 }
 
@@ -127,15 +188,15 @@ function DocumentField({
   field: ExtractedField;
   onProvenanceClick?: (f: ExtractedField) => void;
 }): JSX.Element {
+  // Story 4 hardening — explicit grid columns (label / value / provenance)
+  // so the value cell can't collapse to ~1ch under flex-shrink + min-w-0
+  // when the panel sits inside a narrower grid cell. `1fr` always wins
+  // over `flex-1` for the long-string, narrow-container case.
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-[140px] flex-shrink-0 text-xs text-zinc-600">
-        {humanizeFieldName(field.field_name)}
-      </div>
-      <div className="flex-1 text-sm text-zinc-900 break-words min-w-0">
-        {formatValue(field.value.value)}
-      </div>
-      <div className="flex-shrink-0">
+    <div className="grid grid-cols-[140px_1fr_auto] items-start gap-x-3 gap-y-1">
+      <div className="text-xs text-zinc-600 pt-0.5">{humanizeFieldName(field.field_name)}</div>
+      <div className="text-sm text-zinc-900 break-words">{formatValue(field.value.value)}</div>
+      <div>
         <ProvenanceIndicator
           provenance={field.value.provenance}
           onClick={onProvenanceClick ? () => onProvenanceClick(field) : undefined}

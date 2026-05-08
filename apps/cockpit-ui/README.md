@@ -71,3 +71,9 @@ export default defineConfig([
   },
 ]);
 ```
+
+## Motion language (Story 4.4)
+
+Cockpit motion uses one of four flavors — `snap`, `expand`, `focusDim`, `slideOut` — defined in `src/lib/motion.ts`. Custom durations require an ADR. Code review enforces this.
+
+Use `useMotionPresets()` for animations whose duration must collapse to zero under `prefers-reduced-motion: reduce`; use the bare `Transition` exports for design-time animations that should always run.

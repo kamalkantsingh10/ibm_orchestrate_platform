@@ -16,7 +16,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
+from contracts.sse import SseEvent
 from fastapi import APIRouter, Depends, HTTPException, Path, UploadFile, status
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,9 +31,11 @@ from cockpit_api.services.document_storage import (
     InvalidFilenameError,
     NotAPDFError,
     delete_document,
+    get_document_path,
     list_documents,
     write_pdf,
 )
+from cockpit_api.services.sse_registry import publish_safe
 
 router = APIRouter(prefix="/v1/cases", tags=["documents"])
 
@@ -126,6 +130,11 @@ async def upload_documents(
 
     refreshed = await case_service.get_case(session, case_id)
     refs = list(refreshed.customer_metadata.extra.get("document_refs", []))
+    # Story 4.6 — fan-out so the cockpit-ui invalidates document queries.
+    await publish_safe(
+        case_id,
+        SseEvent(event="case.documents_changed", data={"case_id": case_id}),
+    )
     return UploadResponse(case_id=case_id, uploaded=stored, document_refs=refs)
 
 
@@ -154,6 +163,44 @@ async def list_case_documents(
     )
 
 
+@router.get(
+    "/{case_id}/documents/{filename}/download",
+    # No auth: the cockpit-ui opens these via <a href> / new tab where the
+    # browser cannot send the X-Cockpit-Demo-User header. The fixture-only
+    # demo accepts that trade-off; bank-buyer scope re-attaches auth via
+    # signed URLs (FR43, deferred).
+    summary="Download a stored document as application/pdf",
+    description=(
+        "Story 4 hardening — returns the case's PDF straight from "
+        "``./fixtures/uploads/<case_id>/<filename>`` so the analyst can "
+        "preview the file the agents have been reading. 404 if the file "
+        "isn't on disk; 400 on a malformed filename."
+    ),
+)
+async def download_case_document(
+    case_id: CaseIdPath,
+    filename: str,
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> FileResponse:
+    await case_service.get_case(session, case_id)
+    try:
+        path = get_document_path(case_id, filename)
+    except InvalidFilenameError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if path is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document {filename!r} not found for case {case_id!r}",
+        )
+    return FileResponse(
+        path=path,
+        media_type="application/pdf",
+        # ``inline`` so the browser previews instead of forcing a download.
+        # The user-supplied filename is sanitized by ``get_document_path``.
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 @router.delete(
     "/{case_id}/documents/{filename}",
     status_code=status.HTTP_204_NO_CONTENT,
@@ -176,3 +223,8 @@ async def delete_case_document(
             detail=f"Document {filename!r} not found for case {case_id!r}",
         )
     await CaseRepo.remove_document_ref(session, case_id, filename)
+    # Story 4.6 — fan-out so the cockpit-ui invalidates document queries.
+    await publish_safe(
+        case_id,
+        SseEvent(event="case.documents_changed", data={"case_id": case_id}),
+    )

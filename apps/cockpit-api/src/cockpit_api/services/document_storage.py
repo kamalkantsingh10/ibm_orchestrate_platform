@@ -18,6 +18,8 @@ from pathlib import Path
 
 from contracts.cases import is_valid_case_id
 
+from cockpit_api.config import get_settings
+
 # Cap per file. The cockpit-api router streams multipart bodies; the cap
 # is enforced as a byte-counter as the body is consumed.
 MAX_BYTES = 10 * 1024 * 1024  # 10 MiB
@@ -51,8 +53,12 @@ class StoredDocument:
 
 
 def _uploads_root() -> Path:
-    """Root directory for all uploads. Per-case subdir derived from this."""
-    return Path("./fixtures/uploads")
+    """Root directory for all uploads. Per-case subdir derived from this.
+
+    Sourced from ``Settings.uploads_root`` so the Makefile can pin a
+    repo-root-anchored path regardless of the API's cwd.
+    """
+    return get_settings().uploads_root
 
 
 def case_dir(case_id: str) -> Path:
@@ -139,3 +145,14 @@ def delete_document(case_id: str, filename: str) -> bool:
         return False
     path.unlink()
     return True
+
+
+def get_document_path(case_id: str, filename: str) -> Path | None:
+    """Return the on-disk path if the document exists, else ``None``.
+
+    Validates ``case_id`` and ``filename`` against the safe-name pattern so
+    the router can serve untrusted-input filenames without path traversal.
+    """
+    safe_name = sanitize_filename(filename)
+    path = case_dir(case_id) / safe_name
+    return path if path.exists() and path.is_file() else None

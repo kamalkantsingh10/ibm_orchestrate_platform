@@ -1,0 +1,26 @@
+{
+  "case": {
+    "customer_metadata": {
+      "customer_name": "Ananya Iyer"
+    },
+    "state": "decision_ready"
+  },
+  "extracted_fields": [
+    { "field_name": "name" },
+    { "field_name": "pan" },
+    { "field_name": "aadhaar_last4" },
+    { "field_name": "address" },
+    { "field_name": "annual_income_inr" }
+  ],
+  "entity_status": "no_record",
+  "ubo_summary": null,
+  "screening_summary": "0 open hits across sanctions / PEP / adverse-media",
+  "risk_summary": "total 36/100, band medium_low; income_tier 18 dominates",
+  "ledger_ids": {
+    "document_intelligence": "led_01ANANYA3HJKMNPQRSTVWXYZ91",
+    "entity_verification": "led_01ANANYA4HJKMNPQRSTVWXYZ92",
+    "ubo_graph": "",
+    "screening": "led_01ANANYA5HJKMNPQRSTVWXYZ93",
+    "risk_scoring": "led_01ANANYA6HJKMNPQRSTVWXYZ94"
+  }
+}

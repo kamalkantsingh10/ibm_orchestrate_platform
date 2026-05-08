@@ -23,6 +23,8 @@ cockpit-api = {path = "../cockpit-api", develop = true}
 # for explicit ownership in the prompts module).
 pypdf = "^4.0.0"
 jinja2 = "^3.1.0"
+# Story 6.1 — fuzzy name match in MockScreeningAdapter (token_set_ratio).
+rapidfuzz = "^3.9"
 
 
 [tool.poetry.group.dev.dependencies]

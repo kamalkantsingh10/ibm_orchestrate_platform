@@ -72,3 +72,28 @@ class IntakeRow(Base):
         PrimaryKeyConstraint("case_id", "agent_id", name="pk_intake_results"),
         Index("ix_intake_results_case_id", "case_id"),
     )
+
+
+class DecisionRow(Base):
+    """SQL shape for the ``decisions`` table — Story 7.7.
+
+    One row per officer commit. ``sealed_at`` and
+    ``sealed_ledger_entry_id`` populate when Story 7.4's timer elapses
+    and ``decision_service.seal_decision`` runs. On undo (Story 7.5),
+    the row is deleted entirely — the audit trail lives in the ledger.
+    """
+
+    __tablename__ = "decisions"
+
+    decision_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    case_id: Mapped[str] = mapped_column(String(32), nullable=False)
+    outcome: Mapped[str] = mapped_column(String(32), nullable=False)
+    conditions_json: Mapped[list[Any]] = mapped_column(JSON, nullable=False, default=list)
+    rationale_html: Mapped[str] = mapped_column(String, nullable=False)
+    committed_by_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    committed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    sealed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sealed_ledger_entry_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    committed_ledger_entry_id: Mapped[str] = mapped_column(String(32), nullable=False)
+
+    __table_args__ = (Index("ix_decisions_case_id", "case_id"),)
