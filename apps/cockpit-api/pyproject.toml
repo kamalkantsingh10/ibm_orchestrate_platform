@@ -18,7 +18,7 @@ aiosqlite = "^0.21.0"
 alembic = "^1.18.4"
 contracts = {path = "../../packages/contracts", develop = true}
 python-ulid = "^3.0.0"
-aiofiles = "^24.1.0"
+aiofiles = "^25.1.0"
 # Story 3.4 ADK integration — cockpit-api hosts the
 # /v1/agents/document_intelligence/extract endpoint that the ADK runtime
 # calls as a tool. The path dep is bidirectional with apps/agents (which
